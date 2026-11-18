@@ -46,9 +46,10 @@
   <!-- Lucide Icons -->
   <script src="https://unpkg.com/lucide@latest"></script>
 
-  <!-- Firebase App & Firestore via CDN (Optional Cloud Sync) -->
+  <!-- Firebase App, Firestore & Storage via CDN (Cloud Sync & Audio Storage) -->
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
   <style>
     /* Custom Scrollbar */
@@ -680,10 +681,20 @@
     let recordingInterval = null;
     let recordingSeconds = 0;
 
+    // Default embedded Firebase Config (automatically connects on every device & phone!)
+    const DEFAULT_FIREBASE_CONFIG = {
+      apiKey: "AIzaSyAgSl3GM_KVktFVZJz1GWRE0Icwycw9OMA",
+      authDomain: "sonoplastia-ejc-de-lourdes.firebaseapp.com",
+      projectId: "sonoplastia-ejc-de-lourdes",
+      storageBucket: "sonoplastia-ejc-de-lourdes.firebasestorage.app",
+      messagingSenderId: "4444977647",
+      appId: "1:4444977647:web:5d80c9782d5039a27c9e1a"
+    };
+
     // App state
     const state = {
       plays: [],           // [{ id, name, description, color, createdAt }]
-      audios: [],          // [{ id, playId, title, scene, category, isLoop, blobKey, duration, order, volume, sourceUrl }]
+      audios: [],          // [{ id, playId, title, scene, category, isLoop, blobKey, presetType, duration, order, volume, sourceUrl }]
       activeFilter: 'all', // 'all' or playId
       searchQuery: '',
       masterVolume: 1.0,
@@ -693,9 +704,11 @@
       activePlayingIds: new Set(),
       audioPlayers: {},    // audioId -> { element, state: 'stopped'|'playing'|'paused', blobUrl }
       wakeLockSentinel: null,
-      firebaseConfig: null,
+      firebaseConfig: DEFAULT_FIREBASE_CONFIG,
       firebaseApp: null,
-      firestoreDb: null
+      firestoreDb: null,
+      firebaseStorage: null,
+      lastLocalUpdate: 0
     };
 
     // Open/Create IndexedDB
@@ -788,7 +801,9 @@
       if (savedSettings) {
         state.playbackMode = savedSettings.playbackMode || 'single';
         state.masterVolume = savedSettings.masterVolume ?? 1.0;
-        state.firebaseConfig = savedSettings.firebaseConfig || null;
+        state.firebaseConfig = savedSettings.firebaseConfig || DEFAULT_FIREBASE_CONFIG;
+      } else {
+        state.firebaseConfig = DEFAULT_FIREBASE_CONFIG;
       }
 
       if (savedPlays && savedPlays.length > 0) {
@@ -799,6 +814,7 @@
         await loadDefaultEJCData();
       }
 
+      // Automatically initialize and connect to Firebase Cloud on EVERY device
       if (state.firebaseConfig) {
         initFirebase(state.firebaseConfig);
       }
@@ -1107,6 +1123,7 @@
           category: 'Trilha Musical',
           isLoop: true,
           blobKey: 'sfx-2',
+          presetType: 'suspense',
           duration: '03:45',
           order: 1,
           volume: 1.0
@@ -1119,6 +1136,7 @@
           category: 'Efeito Sonoro',
           isLoop: false,
           blobKey: 'sfx-4',
+          presetType: 'impact',
           duration: '02:10',
           order: 2,
           volume: 1.0
@@ -1131,6 +1149,7 @@
           category: 'Momento de Oração / Espiritualidade',
           isLoop: false,
           blobKey: 'sfx-3',
+          presetType: 'prayer',
           duration: '04:20',
           order: 3,
           volume: 1.0
@@ -1143,6 +1162,7 @@
           category: 'Trilha Musical',
           isLoop: true,
           blobKey: 'sfx-6',
+          presetType: 'wind',
           duration: '03:15',
           order: 1,
           volume: 1.0
@@ -1155,6 +1175,7 @@
           category: 'Efeito Sonoro',
           isLoop: false,
           blobKey: 'sfx-4',
+          presetType: 'impact',
           duration: '01:45',
           order: 2,
           volume: 1.0
@@ -1167,6 +1188,7 @@
           category: 'Efeito Sonoro',
           isLoop: true,
           blobKey: 'sfx-5',
+          presetType: 'thunder',
           duration: '04:00',
           order: 1,
           volume: 1.2
@@ -1179,6 +1201,7 @@
           category: 'Momento de Oração / Espiritualidade',
           isLoop: false,
           blobKey: 'sfx-3',
+          presetType: 'prayer',
           duration: '03:30',
           order: 2,
           volume: 1.0
@@ -1191,6 +1214,7 @@
           category: 'Momento de Oração / Espiritualidade',
           isLoop: false,
           blobKey: 'sfx-1',
+          presetType: 'bell',
           duration: '05:00',
           order: 1,
           volume: 1.0
@@ -1203,6 +1227,7 @@
           category: 'Momento de Oração / Espiritualidade',
           isLoop: false,
           blobKey: 'sfx-1',
+          presetType: 'bell',
           duration: '04:10',
           order: 1,
           volume: 1.0
@@ -1212,6 +1237,15 @@
           playId: 'play-mariano',
           title: '02 - Oração & Envio Final dos Jovens',
           scene: 'Encerramento: Aplausos e abraços',
+          category: 'Efeito Sonoro',
+          isLoop: false,
+          blobKey: 'sfx-7',
+          presetType: 'applause',
+          duration: '02:30',
+          order: 2,
+          volume: 1.0
+        }
+      ];
           category: 'Efeito Sonoro',
           isLoop: false,
           blobKey: 'sfx-7',
@@ -1249,13 +1283,21 @@
 
         let srcUrl = null;
         if (audioMeta.blobKey) {
-          const blobData = await getAudioBlob(audioMeta.blobKey);
+          let blobData = await getAudioBlob(audioMeta.blobKey);
+          if (!blobData && audioMeta.presetType) {
+            blobData = await generateSoundEffectBlob(audioMeta.presetType);
+            await saveAudioBlob(audioMeta.blobKey, blobData);
+          }
           if (blobData) {
             srcUrl = URL.createObjectURL(blobData);
           }
         }
         if (!srcUrl && audioMeta.sourceUrl) {
           srcUrl = audioMeta.sourceUrl;
+          // Cache in background to local IndexedDB for future offline playback
+          fetch(srcUrl).then(r => r.blob()).then(b => {
+            if (audioMeta.blobKey) saveAudioBlob(audioMeta.blobKey, b);
+          }).catch(() => {});
         }
 
         if (!srcUrl) {
@@ -1875,18 +1917,44 @@
         if (!state.firebaseApp) {
           state.firebaseApp = firebase.initializeApp(config);
           state.firestoreDb = firebase.firestore();
+          try {
+            state.firebaseStorage = firebase.storage();
+          } catch (e) {
+            console.warn('Storage:', e);
+          }
           document.getElementById('cloudSyncStatusBanner').classList.remove('hidden');
           
+          // Pre-populate modal input if empty
+          const inputEl = document.getElementById('inputFirebaseConfig');
+          if (inputEl && !inputEl.value) {
+            inputEl.value = JSON.stringify(config, null, 2);
+          }
+
           // Listen to real-time changes
-          state.firestoreDb.collection('ejc_lourdes').doc('soundboard').onSnapshot((doc) => {
+          state.firestoreDb.collection('ejc_lourdes').doc('soundboard').onSnapshot(async (doc) => {
             if (doc.exists) {
               const data = doc.data();
-              if (data.plays && data.updatedAt > (state.lastLocalUpdate || 0)) {
+              if (data.plays && (!state.lastLocalUpdate || data.updatedAt > state.lastLocalUpdate)) {
                 state.plays = data.plays;
                 state.audios = data.audios || [];
+                // Pre-generate procedural preset sounds on this device if missing
+                for (const audio of state.audios) {
+                  if (audio.presetType && audio.blobKey) {
+                    const existing = await getAudioBlob(audio.blobKey);
+                    if (!existing) {
+                      const blob = await generateSoundEffectBlob(audio.presetType);
+                      await saveAudioBlob(audio.blobKey, blob);
+                    }
+                  }
+                }
                 renderApp();
               }
+            } else {
+              // First time: upload local plays and audios to cloud!
+              syncToFirebase();
             }
+          }, (err) => {
+            console.warn('Firestore snapshot error:', err);
           });
         }
       } catch (err) {
@@ -2192,6 +2260,7 @@
             category,
             isLoop,
             blobKey: urlInput ? null : blobKey,
+            presetType: selectedPresetType || null,
             sourceUrl: urlInput || null,
             duration: '02:30',
             volume,
