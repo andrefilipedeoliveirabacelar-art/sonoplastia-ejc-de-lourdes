@@ -1909,22 +1909,46 @@
       }
     }
 
+    // Helper to safely parse Firebase Config from JSON or JS snippet
+    function parseFirebaseInput(raw) {
+      let text = raw.trim();
+      if (text.includes('{') && text.includes('}')) {
+        text = text.substring(text.indexOf('{'), text.lastIndexOf('}') + 1);
+      }
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        const config = {};
+        const keys = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId', 'measurementId'];
+        keys.forEach(k => {
+          const match = text.match(new RegExp(`${k}["']?\\s*:\\s*["']([^"']+)["']`));
+          if (match && match[1]) {
+            config[k] = match[1];
+          }
+        });
+        if (config.apiKey && config.projectId) {
+          return config;
+        }
+        throw new Error('Não foi possível identificar apiKey e projectId. Certifique-se de copiar todo o bloco de configuração.');
+      }
+    }
+
     document.getElementById('btnConnectFirebase').addEventListener('click', async () => {
       const configStr = document.getElementById('inputFirebaseConfig').value.trim();
       if (!configStr) {
-        alert('Por favor, cole a configuração JSON do Firebase.');
+        alert('Por favor, cole a configuração do Firebase.');
         return;
       }
       try {
-        const config = JSON.parse(configStr);
+        const config = parseFirebaseInput(configStr);
         state.firebaseConfig = config;
         initFirebase(config);
         await persistMetadata();
         await syncToFirebase();
-        alert('Conectado à Nuvem com sucesso!');
+        alert('Conectado ao Firebase com sucesso! Seus dados agora estão na nuvem.');
         closeModal('modalCloud');
       } catch (err) {
-        alert('Configuração inválida. Verifique o formato JSON: ' + err.message);
+        alert('Configuração inválida: ' + err.message);
       }
     });
 
