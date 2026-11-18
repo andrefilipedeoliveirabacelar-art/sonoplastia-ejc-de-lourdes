@@ -1,0 +1,23 @@
+{
+  "name": "sonoplastia-ejc-de-lourdes",
+  "version": "2.0.0",
+  "description": "Painel profissional de Sonoplastia e Efeitos Sonoros para as peças teatrais do eJC de Lourdes. PWA 100% Offline com Sincronização em Nuvem e Player Instantâneo.",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve .",
+    "preview": "npx serve ."
+  },
+  "keywords": [
+    "ejc",
+    "sonoplastia",
+    "teatro",
+    "pwa",
+    "offline-first",
+    "soundboard",
+    "catholic",
+    "audio-player"
+  ],
+  "author": "eJC de Lourdes",
+  "license": "MIT"
+}

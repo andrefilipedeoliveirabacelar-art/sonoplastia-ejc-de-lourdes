@@ -1,0 +1,2345 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Sonoplastia eJC de Lourdes - Painel de Áudios das Peças (Offline & Nuvem)</title>
+  <meta name="description" content="Painel de controle profissional de sonoplastia para as peças teatrais do eJC de Lourdes. Execução instantânea com 1 clique, 100% offline (PWA) e sincronização em nuvem." />
+  <meta name="theme-color" content="#090d16" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon-192.svg" />
+  <link rel="apple-touch-icon" href="icons/icon-192.svg" />
+
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            ejc: {
+              50: '#eff6ff',
+              100: '#dbeafe',
+              200: '#bfdbfe',
+              300: '#93c5fd',
+              400: '#60a5fa',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              800: '#1e40af',
+              900: '#1e3a8a',
+              950: '#172554',
+              gold: '#f59e0b',
+              goldDark: '#b45309'
+            }
+          },
+          animation: {
+            'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            'bounce-subtle': 'bounce 2s infinite',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Firebase App & Firestore via CDN (Optional Cloud Sync) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #090d16;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1e293b;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #334155;
+    }
+
+    /* Sound Wave Animation */
+    .wave-bar {
+      transition: height 0.15s ease;
+    }
+    .playing .bar-1 { animation: wave 0.75s ease-in-out infinite alternate; }
+    .playing .bar-2 { animation: wave 1.1s ease-in-out 0.2s infinite alternate; }
+    .playing .bar-3 { animation: wave 0.65s ease-in-out 0.4s infinite alternate; }
+    .playing .bar-4 { animation: wave 1.25s ease-in-out 0.1s infinite alternate; }
+
+    @keyframes wave {
+      0% { height: 4px; }
+      100% { height: 20px; }
+    }
+
+    /* Tactile button feel */
+    .tap-active:active {
+      transform: scale(0.975);
+    }
+
+    /* Hide scrollbars for pill tabs */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col selection:bg-blue-600 selection:text-white pb-32 md:pb-24">
+
+  <!-- ================= TOP HEADER ================= -->
+  <header class="sticky top-0 z-40 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/90 px-3 sm:px-6 py-2.5 shadow-xl">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-2.5">
+      
+      <!-- Brand & Badges -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-700 via-blue-600 to-indigo-500 flex items-center justify-center shadow-lg shadow-blue-600/30 text-amber-400 font-black text-xl border border-blue-400/30 flex-shrink-0">
+          ✝
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-black text-sm sm:text-base leading-tight tracking-tight text-white flex items-center gap-1.5">
+              <span>eJC de Lourdes</span>
+              <span class="text-[10px] bg-blue-500/20 text-blue-300 border border-blue-500/30 px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Sonoplastia v2.0</span>
+            </h1>
+          </div>
+          <div class="flex items-center gap-2 text-[11px] text-slate-400">
+            <span id="connectionBadge" class="flex items-center gap-1 text-emerald-400 font-medium">
+              <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span id="connectionText">Online</span>
+            </span>
+            <span class="text-slate-600">•</span>
+            <span class="text-slate-400 hidden sm:inline">1-Clique • 100% Offline • Nuvem</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Master Controls: Stop All, Master Volume & Actions -->
+      <div class="flex items-center gap-2 sm:gap-2.5 ml-auto">
+        
+        <!-- Emergency Panic Button: PARAR TUDO -->
+        <button id="btnStopAll" title="Interrompe instantaneamente todos os áudios que estiverem tocando (Atalho: Barra de Espaço)" 
+          class="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 text-white font-extrabold px-3 sm:px-4 py-2 rounded-xl shadow-lg shadow-rose-950/60 border border-rose-500/70 transition-all tap-active text-xs sm:text-sm">
+          <i data-lucide="square" class="w-4 h-4 fill-white"></i>
+          <span>PARAR TUDO</span>
+          <span class="hidden lg:inline text-[10px] font-mono bg-rose-950/60 border border-rose-400/30 px-1 rounded">Espaço</span>
+        </button>
+
+        <!-- Master Volume Quick Slider -->
+        <div class="hidden md:flex items-center gap-2 bg-slate-800/90 border border-slate-700/80 rounded-xl px-3 py-1.5 text-xs text-slate-300">
+          <button id="btnMuteMaster" title="Mutar Som Geral" class="hover:text-white transition-colors">
+            <i id="masterVolumeIcon" data-lucide="volume-2" class="w-4 h-4 text-blue-400"></i>
+          </button>
+          <input id="masterVolume" type="range" min="0" max="1" step="0.05" value="1" class="w-20 lg:w-24 accent-blue-500 cursor-pointer" title="Volume Geral" />
+          <span id="masterVolumeLabel" class="w-8 font-mono text-slate-400 text-right">100%</span>
+        </div>
+
+        <!-- Mode Toggle (Single vs Multi audio) -->
+        <button id="btnTogglePlaybackMode" title="Alternar entre tocar 1 áudio por vez (Solo) ou permitir sobreposição de trilhas e efeitos (Mix)"
+          class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 px-2.5 sm:px-3 py-2 rounded-xl text-xs border border-slate-700/90 transition-colors">
+          <i data-lucide="layers" class="w-4 h-4 text-emerald-400"></i>
+          <span id="playbackModeText" class="hidden sm:inline font-semibold">Tocar 1 por Vez</span>
+        </button>
+
+        <!-- Screen Wake Lock Toggle -->
+        <button id="btnToggleWakeLock" title="Manter Tela Ligada para não bloquear o celular durante a peça" 
+          class="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-2 rounded-xl text-xs border border-slate-700 transition-colors">
+          <i id="wakeLockIcon" data-lucide="sun" class="w-4 h-4 text-amber-400"></i>
+          <span id="wakeLockText" class="hidden lg:inline">Tela Ativa</span>
+        </button>
+
+        <!-- Action Buttons: + Peça, + Áudio, Nuvem, Configurações -->
+        <div class="flex items-center gap-1.5">
+          <button id="btnOpenNewPlayModal" class="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-200 px-2.5 py-2 rounded-xl text-xs font-semibold border border-slate-700 transition-colors">
+            <i data-lucide="folder-plus" class="w-4 h-4 text-blue-400"></i>
+            <span class="hidden sm:inline">+ Peça</span>
+          </button>
+          
+          <button id="btnOpenNewAudioModal" class="flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-md shadow-blue-900/40 border border-blue-400/30 transition-all">
+            <i data-lucide="music" class="w-4 h-4"></i>
+            <span>+ Áudio</span>
+          </button>
+
+          <!-- Cloud Sync Modal Button -->
+          <button id="btnOpenCloudModal" title="Sincronização em Nuvem (Firebase / Compartilhar)" class="p-2 text-blue-400 hover:text-white bg-blue-950/50 hover:bg-blue-900/50 border border-blue-500/30 rounded-xl transition-colors">
+            <i data-lucide="cloud" class="w-4 h-4"></i>
+          </button>
+
+          <!-- Settings & Backup Modal Button -->
+          <button id="btnOpenSettingsModal" title="Configurações, Backup e Atalhos" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700/60 rounded-xl transition-colors">
+            <i data-lucide="settings" class="w-4 h-4"></i>
+          </button>
+        </div>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= SUB-NAV / FILTERS, SEARCH & PWA BANNER ================= -->
+  <section class="bg-slate-900/40 border-b border-slate-800/80 px-3 sm:px-6 py-2.5">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
+      
+      <!-- Filter Tabs by Play -->
+      <div id="playTabsContainer" class="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0 text-xs no-scrollbar">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <!-- Quick Search Bar & Install PWA Button -->
+      <div class="flex items-center gap-2 w-full sm:w-auto">
+        <!-- Install PWA button (shown when installable) -->
+        <button id="btnInstallPwa" class="hidden items-center gap-1.5 bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 text-slate-950 font-black px-2.5 py-1.5 rounded-xl text-xs shadow-md transition-all whitespace-nowrap">
+          <i data-lucide="download" class="w-3.5 h-3.5"></i>
+          <span>Instalar App</span>
+        </button>
+
+        <div class="relative w-full sm:w-64">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input id="searchInput" type="text" placeholder="Buscar música, cena ou efeito..." 
+            class="w-full bg-slate-950/90 border border-slate-800 focus:border-blue-500 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all" />
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ================= MAIN SOUNDBOARD CONTAINER ================= -->
+  <main class="max-w-7xl mx-auto px-3 sm:px-6 py-5 flex-1 w-full">
+    
+    <!-- Cloud Status Banner (When Cloud Sync is configured) -->
+    <div id="cloudSyncStatusBanner" class="hidden mb-4 p-3 bg-blue-950/40 border border-blue-500/30 rounded-xl flex items-center justify-between text-xs text-blue-200">
+      <div class="flex items-center gap-2">
+        <i data-lucide="cloud-check" class="w-4 h-4 text-emerald-400"></i>
+        <span>Sincronização em Nuvem Ativa. Todas as alterações são salvas automaticamente na nuvem e no aparelho.</span>
+      </div>
+      <button id="btnManualCloudSync" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold text-[11px] flex items-center gap-1">
+        <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+        <span>Sincronizar Agora</span>
+      </button>
+    </div>
+
+    <!-- Empty State Banner (if no plays or audios) -->
+    <div id="emptyState" class="hidden text-center py-16 px-4 bg-slate-900/40 rounded-3xl border border-dashed border-slate-800 max-w-xl mx-auto my-8">
+      <div class="w-16 h-16 mx-auto mb-4 bg-blue-500/10 text-blue-400 rounded-2xl flex items-center justify-center border border-blue-500/20">
+        <i data-lucide="drama" class="w-8 h-8"></i>
+      </div>
+      <h3 class="text-lg font-bold text-slate-200 mb-1">Nenhum áudio ou peça cadastrada</h3>
+      <p class="text-xs text-slate-400 mb-6 leading-relaxed">
+        Você pode carregar o repertório oficial completo de peças do eJC de Lourdes com efeitos de exemplo, ou criar suas próprias peças e anexar áudios (MP3, WAV, gravação ou links).
+      </p>
+      <div class="flex flex-wrap items-center justify-center gap-3">
+        <button id="btnLoadDemoData" class="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-blue-900/40 transition-all">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          <span>Carregar Peças Oficiais do eJC com Efeitos</span>
+        </button>
+        <button onclick="document.getElementById('btnOpenNewPlayModal').click()" class="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold px-4 py-2.5 rounded-xl border border-slate-700 transition-all">
+          <i data-lucide="folder-plus" class="w-4 h-4 text-blue-400"></i>
+          <span>Criar Nova Peça</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Active Plays & Audio Cards Section Container -->
+    <div id="playsContainer" class="space-y-8">
+      <!-- Dynamically filled with Play sections & Audio cards -->
+    </div>
+
+  </main>
+
+  <!-- ================= BOTTOM NOW PLAYING DOCK (MOBILE & DESKTOP) ================= -->
+  <div id="nowPlayingDock" class="fixed bottom-0 inset-x-0 bg-slate-900/95 backdrop-blur-md border-t border-slate-800/90 z-50 px-3 sm:px-6 py-2.5 shadow-2xl transition-transform duration-300 translate-y-full">
+    <div class="max-w-7xl mx-auto flex items-center justify-between gap-3">
+      
+      <!-- Track Info -->
+      <div class="flex items-center gap-3 min-w-0 flex-1">
+        <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400 flex-shrink-0">
+          <div class="flex items-end gap-0.5 h-4 playing">
+            <span class="w-1 bg-blue-400 rounded-full wave-bar bar-1"></span>
+            <span class="w-1 bg-blue-400 rounded-full wave-bar bar-2"></span>
+            <span class="w-1 bg-blue-400 rounded-full wave-bar bar-3"></span>
+            <span class="w-1 bg-blue-400 rounded-full wave-bar bar-4"></span>
+          </div>
+        </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2 mb-0.5">
+            <span id="dockPlayBadge" class="text-[9px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-blue-500/20 text-blue-300 border border-blue-500/30 truncate max-w-[120px]">PEÇA</span>
+            <span id="dockCategoryBadge" class="text-[9px] uppercase font-semibold px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 truncate max-w-[100px]">CATEGORIA</span>
+            <span id="dockTrackTime" class="text-xs font-mono text-slate-300 ml-auto sm:ml-0 font-medium">00:00 / 00:00</span>
+          </div>
+          <h4 id="dockTrackTitle" class="text-xs sm:text-sm font-bold text-white truncate">Nome da Trilha</h4>
+          
+          <!-- Interactive Progress / Scrubbing Bar -->
+          <div class="w-full bg-slate-800/90 h-2 rounded-full overflow-hidden mt-1 cursor-pointer relative group" id="dockProgressBarContainer">
+            <div id="dockProgressBar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full w-0 transition-all duration-100 rounded-full"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Controls -->
+      <div class="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+        <!-- Loop Toggle -->
+        <button id="dockBtnLoop" title="Repetir em loop" class="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-slate-800 transition-colors">
+          <i data-lucide="repeat" class="w-4 h-4"></i>
+        </button>
+        <!-- Fade Out (Gradual 3 segundos) -->
+        <button id="dockBtnFadeOut" title="Fade Out Suave de 3 segundos (Atalho: F)" class="hidden sm:inline-flex items-center gap-1 text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-xl border border-slate-700 transition-colors">
+          <i data-lucide="trending-down" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Fade Out</span>
+        </button>
+        <!-- Play / Pause -->
+        <button id="dockBtnPlayPause" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 hover:bg-blue-500 active:scale-95 text-white flex items-center justify-center shadow-lg shadow-blue-900/40 transition-all">
+          <i data-lucide="pause" class="w-4 h-4 sm:w-5 sm:h-5 fill-white"></i>
+        </button>
+        <!-- Stop -->
+        <button id="dockBtnStop" title="Parar" class="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-slate-800 hover:bg-rose-600 active:scale-95 text-slate-300 hover:text-white flex items-center justify-center transition-colors">
+          <i data-lucide="square" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ================= MODAL: NOVA PEÇA TEATRAL ================= -->
+  <div id="modalNewPlay" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="folder-plus" class="w-5 h-5 text-blue-400"></i>
+          <span id="titleModalPlay">Cadastrar Nova Peça Teatral</span>
+        </h3>
+        <button onclick="closeModal('modalNewPlay')" class="text-slate-400 hover:text-white p-1 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formNewPlay" class="space-y-4">
+        <input type="hidden" id="inputPlayEditId" value="" />
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Nome da Peça Teatral *</label>
+          <input type="text" id="inputPlayName" required placeholder="Ex: O Filho Pródigo, As Máscaras da Vida, O Barco" 
+            class="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Sinopse / Momento do Retiro / Observações</label>
+          <textarea id="inputPlayDescription" rows="2" placeholder="Ex: Apresentada no sábado à noite. Atenção às deixas da narração e iluminação." 
+            class="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-blue-500"></textarea>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Cor Identificadora da Peça</label>
+          <div class="grid grid-cols-5 gap-2">
+            <label class="cursor-pointer">
+              <input type="radio" name="playColor" value="blue" checked class="peer sr-only" />
+              <div class="h-9 rounded-xl bg-blue-600/30 border-2 border-blue-500/50 peer-checked:border-blue-400 peer-checked:ring-2 peer-checked:ring-blue-400 flex items-center justify-center text-xs font-bold text-blue-300">Azul</div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="playColor" value="emerald" class="peer sr-only" />
+              <div class="h-9 rounded-xl bg-emerald-600/30 border-2 border-emerald-500/50 peer-checked:border-emerald-400 peer-checked:ring-2 peer-checked:ring-emerald-400 flex items-center justify-center text-xs font-bold text-emerald-300">Verde</div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="playColor" value="amber" class="peer sr-only" />
+              <div class="h-9 rounded-xl bg-amber-600/30 border-2 border-amber-500/50 peer-checked:border-amber-400 peer-checked:ring-2 peer-checked:ring-amber-400 flex items-center justify-center text-xs font-bold text-amber-300">Âmbar</div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="playColor" value="purple" class="peer sr-only" />
+              <div class="h-9 rounded-xl bg-purple-600/30 border-2 border-purple-500/50 peer-checked:border-purple-400 peer-checked:ring-2 peer-checked:ring-purple-400 flex items-center justify-center text-xs font-bold text-purple-300">Roxo</div>
+            </label>
+            <label class="cursor-pointer">
+              <input type="radio" name="playColor" value="rose" class="peer sr-only" />
+              <div class="h-9 rounded-xl bg-rose-600/30 border-2 border-rose-500/50 peer-checked:border-rose-400 peer-checked:ring-2 peer-checked:ring-rose-400 flex items-center justify-center text-xs font-bold text-rose-300">Rubro</div>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+          <button type="button" onclick="closeModal('modalNewPlay')" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white rounded-xl">Cancelar</button>
+          <button type="submit" class="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 active:scale-95 rounded-xl shadow-lg shadow-blue-900/30">Salvar Peça</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: NOVO / ANEXAR ÁUDIO ================= -->
+  <div id="modalNewAudio" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="music" class="w-5 h-5 text-blue-400"></i>
+          <span id="titleModalAudio">Anexar Áudio à Peça Teatral</span>
+        </h3>
+        <button onclick="closeModal('modalNewAudio')" class="text-slate-400 hover:text-white p-1 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <form id="formNewAudio" class="space-y-4">
+        <input type="hidden" id="inputAudioEditId" value="" />
+        
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Vincular a qual Peça Teatral? *</label>
+          <select id="selectAudioPlay" required class="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none">
+            <!-- Filled dynamically -->
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Título do Áudio / Faixa *</label>
+          <input type="text" id="inputAudioTitle" required placeholder="Ex: 01 - Trilha de Abertura / Entrada dos Atores" 
+            class="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none" />
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Momento / Deixa da Cena</label>
+            <input type="text" id="inputAudioScene" placeholder="Ex: Cena 2 - Quando a luz apagar / Ao abraço do pai" 
+              class="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none" />
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1">Tipo de Áudio</label>
+            <select id="selectAudioCategory" class="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl px-3.5 py-2 text-sm text-white focus:outline-none">
+              <option value="Trilha Musical">🎵 Trilha Musical</option>
+              <option value="Efeito Sonoro">⚡ Efeito Sonoro (SFX)</option>
+              <option value="Momento de Oração / Espiritualidade">🕊️ Momento de Oração</option>
+              <option value="Voz / Fala / Narrador">🎙️ Voz / Narrador</option>
+              <option value="Transição de Cena">🎬 Transição de Cena</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- SOURCE SELECTION TABS: 1) Arquivo Local, 2) URL Direta, 3) Gravar Microfone, 4) Efeitos Prontos -->
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1.5">Fonte do Áudio *</label>
+          
+          <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 mb-3 text-xs">
+            <button type="button" id="tabSourceFile" class="flex-1 py-1.5 rounded-lg font-bold bg-blue-600 text-white transition-all text-center">
+              📁 Arquivo
+            </button>
+            <button type="button" id="tabSourceUrl" class="flex-1 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white transition-all text-center">
+              🌐 URL Nuvem
+            </button>
+            <button type="button" id="tabSourceRecord" class="flex-1 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white transition-all text-center">
+              🎙️ Gravar
+            </button>
+            <button type="button" id="tabSourcePreset" class="flex-1 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white transition-all text-center">
+              ⚡ Efeitos EJC
+            </button>
+          </div>
+
+          <!-- Section 1: File Upload -->
+          <div id="sourcePanelFile" class="space-y-2">
+            <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-2xl p-5 text-center cursor-pointer transition-colors bg-slate-950/70">
+              <i data-lucide="upload-cloud" class="w-8 h-8 mx-auto text-blue-400 mb-1.5"></i>
+              <p class="text-xs text-slate-200 font-semibold">Clique para selecionar do celular ou computador</p>
+              <p class="text-[11px] text-slate-500 mt-0.5">MP3, WAV, M4A, OGG, AAC suportados • Fica salvo offline</p>
+              <input type="file" id="inputAudioFile" accept="audio/*" class="hidden" />
+              <div id="selectedFileName" class="mt-2.5 text-xs font-bold text-emerald-400 hidden bg-emerald-950/40 border border-emerald-500/30 py-1 px-3 rounded-lg inline-block"></div>
+            </div>
+          </div>
+
+          <!-- Section 2: URL Cloud Link -->
+          <div id="sourcePanelUrl" class="hidden space-y-2">
+            <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2">
+              <p class="text-xs text-slate-400">Cole o link direto do arquivo de áudio hospedado na nuvem (Google Drive, Dropbox, Firebase, S3, etc.):</p>
+              <input type="url" id="inputAudioUrl" placeholder="https://exemplo.com/audio.mp3" 
+                class="w-full bg-slate-900 border border-slate-700 focus:border-blue-500 rounded-xl px-3 py-2 text-xs text-white focus:outline-none" />
+              <p class="text-[11px] text-slate-500">O áudio será automaticamente baixado e guardado para reprodução offline.</p>
+            </div>
+          </div>
+
+          <!-- Section 3: Live Microphone Recording -->
+          <div id="sourcePanelRecord" class="hidden space-y-2">
+            <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-center space-y-3">
+              <p class="text-xs text-slate-400">Grave uma fala do narrador, oração ou efeito com o microfone:</p>
+              <div id="recordingTimer" class="font-mono text-xl font-bold text-rose-500 hidden">00:00</div>
+              <div class="flex items-center justify-center gap-2">
+                <button type="button" id="btnStartRecording" class="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 shadow-md">
+                  <i data-lucide="mic" class="w-4 h-4"></i>
+                  <span>Iniciar Gravação</span>
+                </button>
+                <button type="button" id="btnStopRecording" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 hidden">
+                  <i data-lucide="square" class="w-4 h-4 text-rose-400"></i>
+                  <span>Finalizar</span>
+                </button>
+              </div>
+              <audio id="recordedAudioPreview" controls class="w-full hidden mt-2 h-9"></audio>
+            </div>
+          </div>
+
+          <!-- Section 4: Pre-generated EJC Sound Presets -->
+          <div id="sourcePanelPreset" class="hidden space-y-2">
+            <div class="bg-slate-950/80 border border-slate-800 rounded-2xl p-3">
+              <p class="text-xs text-slate-400 mb-2.5">Efeitos clássicos sintetizados para o teatro do EJC:</p>
+              <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                <button type="button" onclick="selectAudioPreset('bell')" class="bg-slate-900 hover:bg-slate-800 text-slate-300 p-2.5 rounded-xl text-left border border-slate-800 hover:border-blue-500/50 transition-colors">
+                  <div class="text-base mb-1">🔔</div>
+                  <div class="font-bold text-white text-[11px] truncate">Sino de Igreja</div>
+                </button>
+                <button type="button" onclick="selectAudioPreset('suspense')" class="bg-slate-900 hover:bg-slate-800 text-slate-300 p-2.5 rounded-xl text-left border border-slate-800 hover:border-blue-500/50 transition-colors">
+                  <div class="text-base mb-1">🎻</div>
+                  <div class="font-bold text-white text-[11px] truncate">Suspense / Tensão</div>
+                </button>
+                <button type="button" onclick="selectAudioPreset('impact')" class="bg-slate-900 hover:bg-slate-800 text-slate-300 p-2.5 rounded-xl text-left border border-slate-800 hover:border-blue-500/50 transition-colors">
+                  <div class="text-base mb-1">💥</div>
+                  <div class="font-bold text-white text-[11px] truncate">Impacto / Queda</div>
+                </button>
+                <button type="button" onclick="selectAudioPreset('prayer')" class="bg-slate-900 hover:bg-slate-800 text-slate-300 p-2.5 rounded-xl text-left border border-slate-800 hover:border-blue-500/50 transition-colors">
+                  <div class="text-base mb-1">🕊️</div>
+                  <div class="font-bold text-white text-[11px] truncate">Acorde Mariano</div>
+                </button>
+                <button type="button" onclick="selectAudioPreset('thunder')" class="bg-slate-900 hover:bg-slate-800 text-slate-300 p-2.5 rounded-xl text-left border border-slate-800 hover:border-blue-500/50 transition-colors">
+                  <div class="text-base mb-1">⛈️</div>
+                  <div class="font-bold text-white text-[11px] truncate">Trovão / Tempestade</div>
+                </button>
+                <button type="button" onclick="selectAudioPreset('wind')" class="bg-slate-900 hover:bg-slate-800 text-slate-300 p-2.5 rounded-xl text-left border border-slate-800 hover:border-blue-500/50 transition-colors">
+                  <div class="text-base mb-1">💨</div>
+                  <div class="font-bold text-white text-[11px] truncate">Vento / Deserto</div>
+                </button>
+                <button type="button" onclick="selectAudioPreset('heartbeat')" class="bg-slate-900 hover:bg-slate-800 text-slate-300 p-2.5 rounded-xl text-left border border-slate-800 hover:border-blue-500/50 transition-colors">
+                  <div class="text-base mb-1">💓</div>
+                  <div class="font-bold text-white text-[11px] truncate">Coração / Angústia</div>
+                </button>
+                <button type="button" onclick="selectAudioPreset('applause')" class="bg-slate-900 hover:bg-slate-800 text-slate-300 p-2.5 rounded-xl text-left border border-slate-800 hover:border-blue-500/50 transition-colors">
+                  <div class="text-base mb-1">👏</div>
+                  <div class="font-bold text-white text-[11px] truncate">Aplausos Finais</div>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Loop & Volume Options -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+          <label class="flex items-center gap-2 cursor-pointer text-xs text-slate-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <input type="checkbox" id="inputAudioLoop" class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-blue-500 w-4 h-4" />
+            <span>Tocar em repetição contínua (Loop)</span>
+          </label>
+          <div class="flex items-center gap-2 text-xs text-slate-300 bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+            <span class="text-slate-400">Volume:</span>
+            <input type="range" id="inputAudioVolume" min="0.1" max="1.5" step="0.05" value="1.0" class="flex-1 accent-blue-500 cursor-pointer" />
+            <span id="inputAudioVolumeLabel" class="w-8 font-mono text-right">100%</span>
+          </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
+          <button type="button" onclick="closeModal('modalNewAudio')" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white rounded-xl">Cancelar</button>
+          <button type="submit" id="btnSubmitAudio" class="px-5 py-2.5 text-xs font-bold text-white bg-blue-600 hover:bg-blue-500 active:scale-95 rounded-xl shadow-lg shadow-blue-900/40">Anexar Áudio</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: SINCRONIZAÇÃO EM NUVEM (FIREBASE & COMPARTILHAMENTO) ================= -->
+  <div id="modalCloud" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 shadow-2xl max-h-[92vh] overflow-y-auto space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="cloud" class="w-5 h-5 text-blue-400"></i>
+          <span>Sincronização em Nuvem (Multi-Aparelhos)</span>
+        </h3>
+        <button onclick="closeModal('modalCloud')" class="text-slate-400 hover:text-white p-1 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="text-xs text-slate-300 leading-relaxed bg-blue-950/30 border border-blue-500/20 p-3.5 rounded-2xl">
+        <h4 class="font-bold text-blue-300 mb-1 flex items-center gap-1.5">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          Acesse de qualquer lugar sem perder suas músicas
+        </h4>
+        <p>
+          Configure o Firebase (gratuito) para que qualquer membro da equipe da sonoplastia ou coordenação possa abrir o site pelo celular ou notebook e ver as mesmas peças e deixas sincronizadas em tempo real!
+        </p>
+      </div>
+
+      <!-- Cloud Options -->
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-slate-300 mb-1">Configuração do Firebase (JSON)</label>
+          <textarea id="inputFirebaseConfig" rows="4" placeholder='{ "apiKey": "AIzaSy...", "authDomain": "...", "projectId": "...", "storageBucket": "..." }' 
+            class="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl p-3 text-xs font-mono text-slate-200 focus:outline-none"></textarea>
+          <p class="text-[11px] text-slate-500 mt-1">Crie um projeto grátis no console do Firebase e cole aqui a configuração do web app.</p>
+        </div>
+
+        <div class="flex items-center gap-2 pt-1">
+          <button id="btnConnectFirebase" class="flex-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white text-xs font-bold py-2.5 rounded-xl shadow-md transition-all">
+            Salvar &amp; Conectar à Nuvem
+          </button>
+          <button id="btnPushToCloud" class="px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold py-2.5 rounded-xl border border-slate-700 transition-colors">
+            Enviar Dados para Nuvem
+          </button>
+        </div>
+
+        <!-- Room Code / Share Link -->
+        <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2 mt-4">
+          <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+            <i data-lucide="share-2" class="w-4 h-4 text-emerald-400"></i>
+            <span>Compartilhar Pacote com a Equipe</span>
+          </h4>
+          <p class="text-[11px] text-slate-400">
+            Gera um link ou arquivo com todo o repertório cadastrado para enviar pelo WhatsApp da equipe de som.
+          </p>
+          <div class="flex items-center gap-2 pt-1">
+            <button id="btnCopyShareCode" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2 rounded-xl font-medium border border-slate-700">
+              Copiar Código de Compartilhamento
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="pt-2 flex justify-end">
+        <button onclick="closeModal('modalCloud')" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: CONFIGURAÇÕES, BACKUP & AJUDA ================= -->
+  <div id="modalSettings" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[92vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="settings" class="w-5 h-5 text-blue-400"></i>
+          <span>Configurações &amp; Backup</span>
+        </h3>
+        <button onclick="closeModal('modalSettings')" class="text-slate-400 hover:text-white p-1 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <!-- Backup Export & Import -->
+      <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+        <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+          <i data-lucide="hard-drive-download" class="w-4 h-4 text-emerald-400"></i>
+          <span>Backup Portátil em Arquivo JSON</span>
+        </h4>
+        <p class="text-[11px] text-slate-400">
+          Exporte toda a estrutura de peças, cenas, marcações e áudios para salvar no Google Drive ou enviar para a equipe.
+        </p>
+        <div class="flex items-center gap-2 pt-1">
+          <button id="btnExportData" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2.5 rounded-xl font-semibold border border-slate-700 transition-colors">
+            Exportar Backup (.json)
+          </button>
+          <label class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2.5 rounded-xl font-semibold border border-slate-700 text-center cursor-pointer transition-colors">
+            Importar Backup
+            <input type="file" id="inputImportData" accept=".json" class="hidden" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Keyboard Shortcuts Cheatsheet -->
+      <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+        <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+          <i data-lucide="keyboard" class="w-4 h-4 text-amber-400"></i>
+          <span>Atalhos Rápidos de Teclado</span>
+        </h4>
+        <div class="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+          <div><kbd class="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded font-mono">Espaço</kbd> : Parar Tudo</div>
+          <div><kbd class="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded font-mono">F</kbd> : Fade Out Suave</div>
+          <div><kbd class="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded font-mono">M</kbd> : Mudar Volume/Mudo</div>
+          <div><kbd class="bg-slate-800 text-slate-200 px-1.5 py-0.5 rounded font-mono">1 a 9</kbd> : Disparar Áudios</div>
+        </div>
+      </div>
+
+      <!-- Reset Data -->
+      <div class="pt-2 flex items-center justify-between border-t border-slate-800">
+        <button id="btnResetAll" class="text-xs text-rose-400 hover:text-rose-300 font-medium">
+          Limpar Todos os Dados
+        </button>
+        <button onclick="closeModal('modalSettings')" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= JAVASCRIPT APPLICATION CORE ================= -->
+  <script>
+    /* ====================================================================
+       1. STATE & STORAGE (IndexedDB for Persistent Offline Playback)
+       ==================================================================== */
+    const DB_NAME = 'ejc_soundboard_lourdes_v2';
+    const DB_VERSION = 2;
+    let db = null;
+    let deferredInstallPrompt = null;
+    let mediaRecorder = null;
+    let recordedChunks = [];
+    let recordingInterval = null;
+    let recordingSeconds = 0;
+
+    // App state
+    const state = {
+      plays: [],           // [{ id, name, description, color, createdAt }]
+      audios: [],          // [{ id, playId, title, scene, category, isLoop, blobKey, duration, order, volume, sourceUrl }]
+      activeFilter: 'all', // 'all' or playId
+      searchQuery: '',
+      masterVolume: 1.0,
+      isMuted: false,
+      playbackMode: 'single', // 'single' (solo) or 'multi' (mix)
+      currentlyPlaying: null, // Primary active audio id
+      activePlayingIds: new Set(),
+      audioPlayers: {},    // audioId -> { element, state: 'stopped'|'playing'|'paused', blobUrl }
+      wakeLockSentinel: null,
+      firebaseConfig: null,
+      firebaseApp: null,
+      firestoreDb: null
+    };
+
+    // Open/Create IndexedDB
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const req = indexedDB.open(DB_NAME, DB_VERSION);
+        req.onupgradeneeded = (e) => {
+          const dbInst = e.target.result;
+          if (!dbInst.objectStoreNames.contains('metadata')) {
+            dbInst.createObjectStore('metadata', { keyPath: 'key' });
+          }
+          if (!dbInst.objectStoreNames.contains('audio_files')) {
+            dbInst.createObjectStore('audio_files', { keyPath: 'id' });
+          }
+        };
+        req.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        req.onerror = (e) => reject(e);
+      });
+    }
+
+    // Save audio blob in IndexedDB
+    function saveAudioBlob(id, blobOrData) {
+      return new Promise((resolve, reject) => {
+        if (!db) return resolve();
+        const tx = db.transaction('audio_files', 'readwrite');
+        const store = tx.objectStore('audio_files');
+        store.put({ id, data: blobOrData });
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => reject(e);
+      });
+    }
+
+    // Retrieve audio blob by ID
+    function getAudioBlob(id) {
+      return new Promise((resolve, reject) => {
+        if (!db) return resolve(null);
+        const tx = db.transaction('audio_files', 'readonly');
+        const store = tx.objectStore('audio_files');
+        const req = store.get(id);
+        req.onsuccess = () => resolve(req.result ? req.result.data : null);
+        req.onerror = () => resolve(null);
+      });
+    }
+
+    // Persist plays & audio metadata
+    async function persistMetadata() {
+      if (!db) return;
+      try {
+        const tx = db.transaction('metadata', 'readwrite');
+        const store = tx.objectStore('metadata');
+        store.put({ key: 'plays', value: state.plays });
+        store.put({ key: 'audios', value: state.audios });
+        store.put({ 
+          key: 'settings', 
+          value: { 
+            playbackMode: state.playbackMode, 
+            masterVolume: state.masterVolume,
+            firebaseConfig: state.firebaseConfig
+          } 
+        });
+
+        // If Firebase is active, auto-push metadata to Firestore!
+        if (state.firestoreDb) {
+          syncToFirebase();
+        }
+      } catch (err) {
+        console.error('Erro ao persistir metadados:', err);
+      }
+    }
+
+    // Load data from IndexedDB
+    async function loadSavedData() {
+      if (!db) return;
+      const tx = db.transaction('metadata', 'readonly');
+      const store = tx.objectStore('metadata');
+
+      const getReq = (key) => new Promise((res) => {
+        const r = store.get(key);
+        r.onsuccess = () => res(r.result ? r.result.value : null);
+        r.onerror = () => res(null);
+      });
+
+      const savedPlays = await getReq('plays');
+      const savedAudios = await getReq('audios');
+      const savedSettings = await getReq('settings');
+
+      if (savedSettings) {
+        state.playbackMode = savedSettings.playbackMode || 'single';
+        state.masterVolume = savedSettings.masterVolume ?? 1.0;
+        state.firebaseConfig = savedSettings.firebaseConfig || null;
+      }
+
+      if (savedPlays && savedPlays.length > 0) {
+        state.plays = savedPlays;
+        state.audios = savedAudios || [];
+      } else {
+        // Pre-populate with official eJC Lourdes default plays
+        await loadDefaultEJCData();
+      }
+
+      if (state.firebaseConfig) {
+        initFirebase(state.firebaseConfig);
+      }
+    }
+
+    /* ====================================================================
+       2. WEB AUDIO SYNTHESIZER (8 Realistic Catholic & Theatre Presets)
+       ==================================================================== */
+    let audioCtx = null;
+    function getAudioContext() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+      return audioCtx;
+    }
+
+    // Generate procedural audio into persistent WAV Blob
+    function generateSoundEffectBlob(type) {
+      const sampleRate = 44100;
+      let durationSeconds = 4.0;
+      if (type === 'thunder' || type === 'wind') durationSeconds = 5.0;
+      if (type === 'impact') durationSeconds = 2.5;
+
+      const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, sampleRate * durationSeconds, sampleRate);
+      const now = offlineCtx.currentTime;
+
+      if (type === 'bell') {
+        // Church Bell (harmonic chime with acoustic resonance)
+        const partials = [440, 880, 1320, 1760, 2200];
+        partials.forEach((f, idx) => {
+          const osc = offlineCtx.createOscillator();
+          const gain = offlineCtx.createGain();
+          osc.type = idx === 0 ? 'sine' : 'triangle';
+          osc.frequency.setValueAtTime(f, now);
+          gain.gain.setValueAtTime(0.35 / (idx + 1), now);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 3.8);
+          osc.connect(gain);
+          gain.connect(offlineCtx.destination);
+          osc.start(now);
+          osc.stop(now + 3.8);
+        });
+      } else if (type === 'suspense') {
+        // Dramatic low drone / suspense
+        const osc = offlineCtx.createOscillator();
+        const osc2 = offlineCtx.createOscillator();
+        const gain = offlineCtx.createGain();
+        osc.type = 'sawtooth';
+        osc2.type = 'sine';
+        osc.frequency.setValueAtTime(65, now);
+        osc.frequency.linearRampToValueAtTime(78, now + 3.5);
+        osc2.frequency.setValueAtTime(130, now);
+
+        const filter = offlineCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(320, now);
+        filter.frequency.linearRampToValueAtTime(750, now + 3.0);
+
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.4, now + 0.8);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 3.8);
+
+        osc.connect(filter);
+        osc2.connect(filter);
+        filter.connect(gain);
+        gain.connect(offlineCtx.destination);
+        osc.start(now);
+        osc2.start(now);
+        osc.stop(now + 3.8);
+        osc2.stop(now + 3.8);
+      } else if (type === 'impact') {
+        // Sub bass boom / dramatic impact
+        const osc = offlineCtx.createOscillator();
+        const gain = offlineCtx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(180, now);
+        osc.frequency.exponentialRampToValueAtTime(26, now + 1.2);
+        gain.gain.setValueAtTime(0.85, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 2.3);
+        osc.connect(gain);
+        gain.connect(offlineCtx.destination);
+        osc.start(now);
+        osc.stop(now + 2.4);
+      } else if (type === 'thunder') {
+        // Thunder storm: filtered noise burst with rumble
+        const bufferSize = sampleRate * 5;
+        const noiseBuffer = offlineCtx.createBuffer(1, bufferSize, sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+        const whiteNoise = offlineCtx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+
+        const filter = offlineCtx.createBiquadFilter();
+        filter.type = 'lowpass';
+        filter.frequency.setValueAtTime(220, now);
+        filter.frequency.exponentialRampToValueAtTime(60, now + 4.5);
+
+        const gain = offlineCtx.createGain();
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.7, now + 0.3);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 4.8);
+
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(offlineCtx.destination);
+        whiteNoise.start(now);
+        whiteNoise.stop(now + 4.9);
+      } else if (type === 'wind') {
+        // Soft desert wind
+        const bufferSize = sampleRate * 5;
+        const noiseBuffer = offlineCtx.createBuffer(1, bufferSize, sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = Math.random() * 2 - 1;
+        }
+        const whiteNoise = offlineCtx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+
+        const filter = offlineCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(400, now);
+        filter.frequency.linearRampToValueAtTime(700, now + 2.5);
+        filter.frequency.linearRampToValueAtTime(350, now + 4.8);
+        filter.Q.value = 3.0;
+
+        const gain = offlineCtx.createGain();
+        gain.gain.setValueAtTime(0.02, now);
+        gain.gain.linearRampToValueAtTime(0.35, now + 1.5);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 4.9);
+
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(offlineCtx.destination);
+        whiteNoise.start(now);
+        whiteNoise.stop(now + 4.9);
+      } else if (type === 'heartbeat') {
+        // Two subtle heartbeat thumps
+        [0.2, 0.55, 1.4, 1.75, 2.6, 2.95].forEach((t) => {
+          const osc = offlineCtx.createOscillator();
+          const gain = offlineCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(80, now + t);
+          osc.frequency.exponentialRampToValueAtTime(35, now + t + 0.2);
+          gain.gain.setValueAtTime(0.6, now + t);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + t + 0.22);
+          osc.connect(gain);
+          gain.connect(offlineCtx.destination);
+          osc.start(now + t);
+          osc.stop(now + t + 0.23);
+        });
+      } else if (type === 'applause') {
+        // Audience cheer simulation
+        const bufferSize = sampleRate * 4;
+        const noiseBuffer = offlineCtx.createBuffer(1, bufferSize, sampleRate);
+        const output = noiseBuffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+          output[i] = (Math.random() * 2 - 1) * (Math.sin(i * 0.05) > 0.3 ? 1 : 0.3);
+        }
+        const whiteNoise = offlineCtx.createBufferSource();
+        whiteNoise.buffer = noiseBuffer;
+
+        const filter = offlineCtx.createBiquadFilter();
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1200, now);
+        filter.Q.value = 1.0;
+
+        const gain = offlineCtx.createGain();
+        gain.gain.setValueAtTime(0.01, now);
+        gain.gain.linearRampToValueAtTime(0.45, now + 0.8);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 3.8);
+
+        whiteNoise.connect(filter);
+        filter.connect(gain);
+        gain.connect(offlineCtx.destination);
+        whiteNoise.start(now);
+        whiteNoise.stop(now + 3.9);
+      } else {
+        // Prayer / Oração Chord (Ethereal C Major 7th Pad)
+        const notes = [261.63, 329.63, 392.00, 493.88, 523.25];
+        notes.forEach((f) => {
+          const osc = offlineCtx.createOscillator();
+          const gain = offlineCtx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(f, now);
+          gain.gain.setValueAtTime(0.01, now);
+          gain.gain.linearRampToValueAtTime(0.18, now + 0.6);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 3.9);
+          osc.connect(gain);
+          gain.connect(offlineCtx.destination);
+          osc.start(now);
+          osc.stop(now + 4.0);
+        });
+      }
+
+      return offlineCtx.startRendering().then((renderedBuffer) => {
+        return bufferToWave(renderedBuffer, 0, renderedBuffer.length);
+      });
+    }
+
+    // Convert AudioBuffer to WAV Blob
+    function bufferToWave(abuffer, offset, len) {
+      let numOfChan = abuffer.numberOfChannels,
+          length = len * numOfChan * 2 + 44,
+          out = new DataView(new ArrayBuffer(length)),
+          channels = [], i, sample, pos = 0;
+
+      function setUint16(data) { out.setUint16(pos, data, true); pos += 2; }
+      function setUint32(data) { out.setUint32(pos, data, true); pos += 4; }
+
+      setUint32(0x46464952); // "RIFF"
+      setUint32(length - 8);
+      setUint32(0x45564157); // "WAVE"
+      setUint32(0x20746d66); // "fmt " chunk
+      setUint32(16);
+      setUint16(1); // PCM
+      setUint16(numOfChan);
+      setUint32(abuffer.sampleRate);
+      setUint32(abuffer.sampleRate * 2 * numOfChan);
+      setUint16(numOfChan * 2);
+      setUint16(16);
+      setUint32(0x61746164); // "data" chunk
+      setUint32(length - pos - 4);
+
+      for (i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
+      while (pos < length) {
+        for (i = 0; i < numOfChan; i++) {
+          sample = Math.max(-1, Math.min(1, channels[i][offset]));
+          sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+          out.setInt16(pos, sample, true);
+          pos += 2;
+        }
+        offset++;
+      }
+      return new Blob([out], { type: 'audio/wav' });
+    }
+
+    /* ====================================================================
+       3. DEFAULT EJC LOURDES PLAYS & SOUNDS
+       ==================================================================== */
+    async function loadDefaultEJCData() {
+      state.plays = [
+        {
+          id: 'play-filho-prodigo',
+          name: 'O Filho Pródigo',
+          description: 'Sábado à noite. A partida, as desilusões do mundo e o acolhimento amoroso do Pai.',
+          color: 'blue',
+          createdAt: 1700000000000
+        },
+        {
+          id: 'play-mascaras',
+          name: 'As Máscaras da Vida',
+          description: 'Reflexão sobre autenticidade, libertação dos fardos e a verdadeira identidade em Cristo.',
+          color: 'emerald',
+          createdAt: 1700000000001
+        },
+        {
+          id: 'play-barco',
+          name: 'O Barco e a Tempestade',
+          description: 'A tempestade em alto mar, o medo e a fé quando Jesus acalma os ventos.',
+          color: 'amber',
+          createdAt: 1700000000002
+        },
+        {
+          id: 'play-pais',
+          name: 'Peça dos Pais e Família',
+          description: 'A bênção do lar, o perdão mútuo e a entrada emocionante dos pais.',
+          color: 'rose',
+          createdAt: 1700000000003
+        },
+        {
+          id: 'play-mariano',
+          name: 'Consagração a Nossa Senhora de Lourdes',
+          description: 'Momento de profunda oração, bênção das velas e envio pastoral dos jovens.',
+          color: 'purple',
+          createdAt: 1700000000004
+        }
+      ];
+
+      // Procedural audio blobs
+      const bellBlob = await generateSoundEffectBlob('bell');
+      const suspenseBlob = await generateSoundEffectBlob('suspense');
+      const impactBlob = await generateSoundEffectBlob('impact');
+      const prayerBlob = await generateSoundEffectBlob('prayer');
+      const thunderBlob = await generateSoundEffectBlob('thunder');
+      const windBlob = await generateSoundEffectBlob('wind');
+      const applauseBlob = await generateSoundEffectBlob('applause');
+
+      await saveAudioBlob('sfx-1', bellBlob);
+      await saveAudioBlob('sfx-2', suspenseBlob);
+      await saveAudioBlob('sfx-3', prayerBlob);
+      await saveAudioBlob('sfx-4', impactBlob);
+      await saveAudioBlob('sfx-5', thunderBlob);
+      await saveAudioBlob('sfx-6', windBlob);
+      await saveAudioBlob('sfx-7', applauseBlob);
+
+      state.audios = [
+        {
+          id: 'audio-p1-1',
+          playId: 'play-filho-prodigo',
+          title: '01 - Partida do Filho & Ilusões do Mundo',
+          scene: 'Cena 1: O jovem exige sua herança e parte',
+          category: 'Trilha Musical',
+          isLoop: true,
+          blobKey: 'sfx-2',
+          duration: '03:45',
+          order: 1,
+          volume: 1.0
+        },
+        {
+          id: 'audio-p1-2',
+          playId: 'play-filho-prodigo',
+          title: '02 - Solidão no Chiqueiro & Queda',
+          scene: 'Cena 2: Quando o dinheiro acaba e sobra a fome',
+          category: 'Efeito Sonoro',
+          isLoop: false,
+          blobKey: 'sfx-4',
+          duration: '02:10',
+          order: 2,
+          volume: 1.0
+        },
+        {
+          id: 'audio-p1-3',
+          playId: 'play-filho-prodigo',
+          title: '03 - O Abraço do Pai (Clímax da Misericórdia)',
+          scene: 'Cena 3: O Pai corre ao encontro e coloca o anel',
+          category: 'Momento de Oração / Espiritualidade',
+          isLoop: false,
+          blobKey: 'sfx-3',
+          duration: '04:20',
+          order: 3,
+          volume: 1.0
+        },
+        {
+          id: 'audio-p2-1',
+          playId: 'play-mascaras',
+          title: '01 - O Peso das Máscaras Sociais',
+          scene: 'Cena 1: Os personagens entram com máscaras pesadas',
+          category: 'Trilha Musical',
+          isLoop: true,
+          blobKey: 'sfx-6',
+          duration: '03:15',
+          order: 1,
+          volume: 1.0
+        },
+        {
+          id: 'audio-p2-2',
+          playId: 'play-mascaras',
+          title: '02 - A Queda das Máscaras diante da Cruz',
+          scene: 'Cena 2: Uma a uma, as máscaras caem no chão',
+          category: 'Efeito Sonoro',
+          isLoop: false,
+          blobKey: 'sfx-4',
+          duration: '01:45',
+          order: 2,
+          volume: 1.0
+        },
+        {
+          id: 'audio-p3-1',
+          playId: 'play-barco',
+          title: '01 - Trovoadas & Ventania no Mar',
+          scene: 'Cena 1: O mar se revolta e o barco balança',
+          category: 'Efeito Sonoro',
+          isLoop: true,
+          blobKey: 'sfx-5',
+          duration: '04:00',
+          order: 1,
+          volume: 1.2
+        },
+        {
+          id: 'audio-p3-2',
+          playId: 'play-barco',
+          title: '02 - Silêncio da Tempestade: "Cala-te, Emudece!"',
+          scene: 'Cena 2: Jesus se levanta e o mar acalma',
+          category: 'Momento de Oração / Espiritualidade',
+          isLoop: false,
+          blobKey: 'sfx-3',
+          duration: '03:30',
+          order: 2,
+          volume: 1.0
+        },
+        {
+          id: 'audio-p4-1',
+          playId: 'play-pais',
+          title: '01 - Entrada Emocionante dos Pais',
+          scene: 'Cena Final: As portas se abrem para o reencontro',
+          category: 'Momento de Oração / Espiritualidade',
+          isLoop: false,
+          blobKey: 'sfx-1',
+          duration: '05:00',
+          order: 1,
+          volume: 1.0
+        },
+        {
+          id: 'audio-p5-1',
+          playId: 'play-mariano',
+          title: '01 - Bênção das Velas & Sinos de Lourdes',
+          scene: 'Momento Mariano: Luzes apagadas, velas acesas',
+          category: 'Momento de Oração / Espiritualidade',
+          isLoop: false,
+          blobKey: 'sfx-1',
+          duration: '04:10',
+          order: 1,
+          volume: 1.0
+        },
+        {
+          id: 'audio-p5-2',
+          playId: 'play-mariano',
+          title: '02 - Oração & Envio Final dos Jovens',
+          scene: 'Encerramento: Aplausos e abraços',
+          category: 'Efeito Sonoro',
+          isLoop: false,
+          blobKey: 'sfx-7',
+          duration: '02:30',
+          order: 2,
+          volume: 1.0
+        }
+      ];
+
+      await persistMetadata();
+    }
+
+    /* ====================================================================
+       4. AUDIO ENGINE (Instant 1-Click Play, Solo/Mix, Fade-Out, Scrub)
+       ==================================================================== */
+    async function playAudio(audioId) {
+      getAudioContext();
+
+      let playerObj = state.audioPlayers[audioId];
+
+      // If already playing -> Toggle pause
+      if (playerObj && playerObj.state === 'playing') {
+        pauseAudio(audioId);
+        return;
+      }
+
+      // If in Solo Mode (1 por vez) -> Stop other running audios
+      if (state.playbackMode === 'single') {
+        stopAllAudios(false);
+      }
+
+      if (!playerObj) {
+        const audioMeta = state.audios.find(a => a.id === audioId);
+        if (!audioMeta) return;
+
+        let srcUrl = null;
+        if (audioMeta.blobKey) {
+          const blobData = await getAudioBlob(audioMeta.blobKey);
+          if (blobData) {
+            srcUrl = URL.createObjectURL(blobData);
+          }
+        }
+        if (!srcUrl && audioMeta.sourceUrl) {
+          srcUrl = audioMeta.sourceUrl;
+        }
+
+        if (!srcUrl) {
+          alert('Arquivo de áudio não encontrado no navegador.');
+          return;
+        }
+
+        const audioElement = new Audio(srcUrl);
+        audioElement.loop = !!audioMeta.isLoop;
+        const trackVol = audioMeta.volume ?? 1.0;
+        audioElement.volume = Math.min(1.0, state.masterVolume * trackVol);
+
+        playerObj = {
+          element: audioElement,
+          state: 'stopped',
+          blobUrl: srcUrl
+        };
+        state.audioPlayers[audioId] = playerObj;
+
+        // Audio events
+        audioElement.addEventListener('ended', () => {
+          playerObj.state = 'stopped';
+          state.activePlayingIds.delete(audioId);
+          if (state.currentlyPlaying === audioId) {
+            state.currentlyPlaying = Array.from(state.activePlayingIds).pop() || null;
+            if (!state.currentlyPlaying) hideNowPlayingDock();
+            else showNowPlayingDock(state.currentlyPlaying);
+          }
+          updateCardUI(audioId);
+        });
+
+        audioElement.addEventListener('timeupdate', () => {
+          if (state.currentlyPlaying === audioId) {
+            updateDockProgress(audioElement.currentTime, audioElement.duration);
+          }
+        });
+      }
+
+      try {
+        const audioMeta = state.audios.find(a => a.id === audioId);
+        const trackVol = audioMeta ? (audioMeta.volume ?? 1.0) : 1.0;
+        playerObj.element.volume = state.isMuted ? 0 : Math.min(1.0, state.masterVolume * trackVol);
+        await playerObj.element.play();
+        playerObj.state = 'playing';
+        state.activePlayingIds.add(audioId);
+        state.currentlyPlaying = audioId;
+
+        updateCardUI(audioId);
+        showNowPlayingDock(audioId);
+      } catch (err) {
+        console.error('Falha ao reproduzir áudio:', err);
+      }
+    }
+
+    function pauseAudio(audioId) {
+      const p = state.audioPlayers[audioId];
+      if (p && p.element) {
+        p.element.pause();
+        p.state = 'paused';
+        updateCardUI(audioId);
+        updateDockButtons();
+      }
+    }
+
+    function stopAudio(audioId) {
+      const p = state.audioPlayers[audioId];
+      if (p && p.element) {
+        p.element.pause();
+        p.element.currentTime = 0;
+        p.state = 'stopped';
+        state.activePlayingIds.delete(audioId);
+        if (state.currentlyPlaying === audioId) {
+          state.currentlyPlaying = Array.from(state.activePlayingIds).pop() || null;
+          if (!state.currentlyPlaying) hideNowPlayingDock();
+          else showNowPlayingDock(state.currentlyPlaying);
+        }
+        updateCardUI(audioId);
+      }
+    }
+
+    function stopAllAudios(hideDock = true) {
+      Object.keys(state.audioPlayers).forEach((id) => {
+        const p = state.audioPlayers[id];
+        if (p && p.element) {
+          p.element.pause();
+          p.element.currentTime = 0;
+          p.state = 'stopped';
+          updateCardUI(id);
+        }
+      });
+      state.activePlayingIds.clear();
+      state.currentlyPlaying = null;
+      if (hideDock) hideNowPlayingDock();
+    }
+
+    function fadeOutAudio(audioId, durationMs = 2800) {
+      const p = state.audioPlayers[audioId];
+      if (!p || p.state !== 'playing') return;
+
+      const stepTime = 100;
+      const steps = durationMs / stepTime;
+      const initialVol = p.element.volume;
+      const volStep = initialVol / steps;
+
+      const interval = setInterval(() => {
+        if (p.element.volume > volStep) {
+          p.element.volume -= volStep;
+        } else {
+          clearInterval(interval);
+          stopAudio(audioId);
+          // Restore volume for next time
+          const audioMeta = state.audios.find(a => a.id === audioId);
+          const trackVol = audioMeta ? (audioMeta.volume ?? 1.0) : 1.0;
+          p.element.volume = Math.min(1.0, state.masterVolume * trackVol);
+        }
+      }, stepTime);
+    }
+
+    function toggleAudioLoop(audioId) {
+      const audio = state.audios.find(a => a.id === audioId);
+      if (audio) {
+        audio.isLoop = !audio.isLoop;
+        if (state.audioPlayers[audioId]?.element) {
+          state.audioPlayers[audioId].element.loop = audio.isLoop;
+        }
+        persistMetadata();
+        updateCardUI(audioId);
+      }
+    }
+
+    /* ====================================================================
+       5. UI RENDERING & BUILDERS
+       ==================================================================== */
+    function renderApp() {
+      renderPlayTabs();
+      renderPlaySections();
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function renderPlayTabs() {
+      const container = document.getElementById('playTabsContainer');
+      const allActive = state.activeFilter === 'all';
+
+      let html = `
+        <button onclick="setPlayFilter('all')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold whitespace-nowrap transition-all ${
+          allActive 
+            ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40' 
+            : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+        }">
+          <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+          <span>Todas as Peças (${state.plays.length})</span>
+        </button>
+      `;
+
+      state.plays.forEach((play) => {
+        const isActive = state.activeFilter === play.id;
+        const count = state.audios.filter(a => a.playId === play.id).length;
+        html += `
+          <button onclick="setPlayFilter('${play.id}')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-semibold whitespace-nowrap transition-all ${
+            isActive 
+              ? 'bg-blue-600 text-white shadow-md shadow-blue-900/40' 
+              : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+          }">
+            <span class="w-2 h-2 rounded-full bg-${play.color || 'blue'}-400"></span>
+            <span>${escapeHtml(play.name)}</span>
+            <span class="text-[10px] bg-slate-900/70 px-1.5 py-0.2 rounded-full opacity-80">${count}</span>
+          </button>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function renderPlaySections() {
+      const container = document.getElementById('playsContainer');
+      const emptyState = document.getElementById('emptyState');
+
+      const filteredPlays = state.activeFilter === 'all' 
+        ? state.plays 
+        : state.plays.filter(p => p.id === state.activeFilter);
+
+      if (filteredPlays.length === 0 && state.plays.length === 0) {
+        emptyState.classList.remove('hidden');
+        container.innerHTML = '';
+        return;
+      } else {
+        emptyState.classList.add('hidden');
+      }
+
+      let html = '';
+
+      filteredPlays.forEach((play) => {
+        let playAudios = state.audios.filter(a => a.playId === play.id);
+
+        // Sorting by order
+        playAudios.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        // Search query filter
+        if (state.searchQuery.trim() !== '') {
+          const q = state.searchQuery.toLowerCase();
+          playAudios = playAudios.filter(a => 
+            a.title.toLowerCase().includes(q) || 
+            (a.scene && a.scene.toLowerCase().includes(q)) ||
+            (a.category && a.category.toLowerCase().includes(q))
+          );
+        }
+
+        const colorMap = {
+          blue: { border: 'border-blue-500/30', bg: 'bg-blue-500/10', text: 'text-blue-400', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+          emerald: { border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+          amber: { border: 'border-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+          purple: { border: 'border-purple-500/30', bg: 'bg-purple-500/10', text: 'text-purple-400', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+          rose: { border: 'border-rose-500/30', bg: 'bg-rose-500/10', text: 'text-rose-400', badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30' }
+        };
+        const c = colorMap[play.color || 'blue'] || colorMap.blue;
+
+        html += `
+          <div class="bg-slate-900/60 rounded-3xl border ${c.border} p-4 sm:p-5 shadow-xl">
+            
+            <!-- Play Header -->
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-3.5 mb-4 border-b border-slate-800 gap-2">
+              <div>
+                <div class="flex items-center gap-2">
+                  <span class="w-3 h-3 rounded-full ${c.bg} border-2 ${c.border}"></span>
+                  <h2 class="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                    <span>${escapeHtml(play.name)}</span>
+                    <span class="text-xs font-semibold px-2 py-0.5 rounded-full ${c.badge} border">
+                      ${playAudios.length} áudio${playAudios.length !== 1 ? 's' : ''}
+                    </span>
+                  </h2>
+                </div>
+                ${play.description ? `<p class="text-xs text-slate-400 mt-1 pl-5 leading-relaxed">${escapeHtml(play.description)}</p>` : ''}
+              </div>
+
+              <!-- Quick Play Options -->
+              <div class="flex items-center gap-1.5 pl-5 sm:pl-0 flex-shrink-0">
+                <button onclick="openNewAudioModalForPlay('${play.id}')" class="text-xs font-bold bg-slate-800 hover:bg-slate-700 text-blue-400 hover:text-blue-300 px-3 py-1.5 rounded-xl border border-slate-700 flex items-center gap-1.5 transition-colors">
+                  <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+                  <span>Anexar Áudio</span>
+                </button>
+                <button onclick="editPlay('${play.id}')" title="Editar informações da peça" class="text-xs text-slate-400 hover:text-white p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+                  <i data-lucide="edit" class="w-4 h-4"></i>
+                </button>
+                <button onclick="deletePlay('${play.id}')" title="Excluir peça" class="text-xs text-slate-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors">
+                  <i data-lucide="trash-2" class="w-4 h-4"></i>
+                </button>
+              </div>
+            </div>
+
+            <!-- Audio Cards Grid (SOUNDBOARD 1-CLICK) -->
+            ${playAudios.length === 0 ? `
+              <div class="text-center py-8 text-xs text-slate-500 bg-slate-950/40 rounded-2xl border border-dashed border-slate-800">
+                Nenhum áudio anexado a esta peça ainda. 
+                <button onclick="openNewAudioModalForPlay('${play.id}')" class="text-blue-400 hover:underline font-bold ml-1">Anexar áudio agora</button>
+              </div>
+            ` : `
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                ${playAudios.map((audio, idx) => renderAudioCard(audio, play, c, idx + 1)).join('')}
+              </div>
+            `}
+
+          </div>
+        `;
+      });
+
+      container.innerHTML = html;
+    }
+
+    function renderAudioCard(audio, play, c, hotkeyNum) {
+      const playerObj = state.audioPlayers[audio.id];
+      const isPlaying = playerObj && playerObj.state === 'playing';
+      const isPaused = playerObj && playerObj.state === 'paused';
+
+      return `
+        <div id="card-${audio.id}" class="relative group bg-slate-950/90 rounded-2xl border ${
+          isPlaying 
+            ? 'border-blue-500 ring-2 ring-blue-500/40 shadow-xl shadow-blue-500/20' 
+            : isPaused 
+            ? 'border-amber-500/60' 
+            : 'border-slate-800/90 hover:border-slate-700'
+        } p-3.5 transition-all duration-150 flex flex-col justify-between select-none">
+          
+          <!-- MAIN 1-CLICK TAP AREA -->
+          <div onclick="playAudio('${audio.id}')" class="cursor-pointer tap-active">
+            
+            <!-- Card Header: Category, Hotkey & Equalizer -->
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${c.badge} border truncate max-w-[150px]">
+                ${escapeHtml(audio.category || 'Trilha')}
+              </span>
+
+              <div class="flex items-center gap-1.5">
+                ${audio.isLoop ? `<span title="Em repetição contínua" class="text-xs text-blue-400">🔁</span>` : ''}
+                ${hotkeyNum <= 9 ? `<span title="Atalho de Teclado ${hotkeyNum}" class="text-[10px] font-mono text-slate-500 bg-slate-900 border border-slate-800 px-1.5 py-0.2 rounded hidden md:inline">#${hotkeyNum}</span>` : ''}
+
+                <!-- Equalizer Animation -->
+                <div class="flex items-end gap-0.5 h-4 ${isPlaying ? 'playing' : ''}">
+                  <span class="w-1 ${isPlaying ? 'bg-blue-400' : 'bg-slate-700'} rounded-full wave-bar bar-1"></span>
+                  <span class="w-1 ${isPlaying ? 'bg-blue-400' : 'bg-slate-700'} rounded-full wave-bar bar-2"></span>
+                  <span class="w-1 ${isPlaying ? 'bg-blue-400' : 'bg-slate-700'} rounded-full wave-bar bar-3"></span>
+                  <span class="w-1 ${isPlaying ? 'bg-blue-400' : 'bg-slate-700'} rounded-full wave-bar bar-4"></span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Title & Scene Deixa -->
+            <h3 class="text-sm font-bold text-white group-hover:text-blue-300 transition-colors line-clamp-2 leading-snug mb-1">
+              ${escapeHtml(audio.title)}
+            </h3>
+
+            ${audio.scene ? `
+              <p class="text-xs text-slate-400 flex items-center gap-1 line-clamp-1 mb-2">
+                <i data-lucide="flag" class="w-3 h-3 text-amber-400 flex-shrink-0"></i>
+                <span>${escapeHtml(audio.scene)}</span>
+              </p>
+            ` : '<div class="h-2"></div>'}
+
+            <!-- Big Clickable Button -->
+            <div class="mt-2 py-2 px-3 rounded-xl ${
+              isPlaying 
+                ? 'bg-blue-600 text-white font-black' 
+                : isPaused 
+                ? 'bg-amber-600/30 text-amber-300 font-bold border border-amber-500/40' 
+                : 'bg-slate-900 group-hover:bg-slate-800 text-slate-300 border border-slate-800'
+            } flex items-center justify-between text-xs transition-colors">
+              <span class="flex items-center gap-2">
+                <i data-lucide="${isPlaying ? 'pause' : 'play'}" class="w-4 h-4 ${isPlaying ? 'fill-white' : ''}"></i>
+                <span>${isPlaying ? 'TOCANDO AGORA' : isPaused ? 'PAUSADO' : '1 CLIQUE P/ TOCAR'}</span>
+              </span>
+              <span class="font-mono text-[11px] opacity-80">${audio.duration || '00:00'}</span>
+            </div>
+
+          </div>
+
+          <!-- Secondary Actions (Stop, Fade, Edit, Loop, Delete) -->
+          <div class="mt-2.5 pt-2 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+            <div class="flex items-center gap-1">
+              <button onclick="stopAudio('${audio.id}')" title="Parar" class="p-1 hover:text-rose-400 hover:bg-slate-800 rounded transition-colors">
+                <i data-lucide="square" class="w-3.5 h-3.5"></i>
+              </button>
+              <button onclick="fadeOutAudio('${audio.id}')" title="Fade Out Suave de 3s" class="p-1 hover:text-amber-400 hover:bg-slate-800 rounded transition-colors text-[10px] font-mono">
+                Fade
+              </button>
+              <button onclick="toggleAudioLoop('${audio.id}')" title="Alternar Loop" class="p-1 hover:text-blue-400 hover:bg-slate-800 rounded transition-colors">
+                <i data-lucide="repeat" class="w-3.5 h-3.5 ${audio.isLoop ? 'text-blue-400' : ''}"></i>
+              </button>
+            </div>
+
+            <div class="flex items-center gap-1">
+              <button onclick="editAudio('${audio.id}')" title="Editar áudio" class="p-1 hover:text-blue-400 rounded transition-colors">
+                <i data-lucide="edit" class="w-3.5 h-3.5"></i>
+              </button>
+              <button onclick="deleteAudio('${audio.id}')" title="Excluir áudio" class="p-1 hover:text-rose-400 rounded transition-colors">
+                <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      `;
+    }
+
+    function updateCardUI(audioId) {
+      const card = document.getElementById(`card-${audioId}`);
+      if (!card) return;
+
+      const audio = state.audios.find(a => a.id === audioId);
+      const play = audio ? state.plays.find(p => p.id === audio.playId) : null;
+      if (!audio || !play) return;
+
+      const colorMap = {
+        blue: { border: 'border-blue-500/30', bg: 'bg-blue-500/10', text: 'text-blue-400', badge: 'bg-blue-500/20 text-blue-300 border-blue-500/30' },
+        emerald: { border: 'border-emerald-500/30', bg: 'bg-emerald-500/10', text: 'text-emerald-400', badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+        amber: { border: 'border-amber-500/30', bg: 'bg-amber-500/10', text: 'text-amber-400', badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+        purple: { border: 'border-purple-500/30', bg: 'bg-purple-500/10', text: 'text-purple-400', badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+        rose: { border: 'border-rose-500/30', bg: 'bg-rose-500/10', text: 'text-rose-400', badge: 'bg-rose-500/20 text-rose-300 border-rose-500/30' }
+      };
+      const c = colorMap[play.color || 'blue'] || colorMap.blue;
+
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = renderAudioCard(audio, play, c, 1);
+      card.replaceWith(tempDiv.firstElementChild);
+      if (window.lucide) lucide.createIcons();
+    }
+
+    /* ====================================================================
+       6. DOCK / NOW PLAYING CONTROLS
+       ==================================================================== */
+    function showNowPlayingDock(audioId) {
+      const dock = document.getElementById('nowPlayingDock');
+      const audio = state.audios.find(a => a.id === audioId);
+      const play = audio ? state.plays.find(p => p.id === audio.playId) : null;
+      if (!audio) return;
+
+      document.getElementById('dockTrackTitle').textContent = audio.title;
+      document.getElementById('dockPlayBadge').textContent = play ? play.name : 'PEÇA';
+      document.getElementById('dockCategoryBadge').textContent = audio.category || 'ÁUDIO';
+
+      updateDockButtons();
+      dock.classList.remove('translate-y-full');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function hideNowPlayingDock() {
+      const dock = document.getElementById('nowPlayingDock');
+      dock.classList.add('translate-y-full');
+    }
+
+    function updateDockProgress(currentTime, duration) {
+      if (!duration || isNaN(duration)) return;
+      const progressPercent = (currentTime / duration) * 100;
+      document.getElementById('dockProgressBar').style.width = `${progressPercent}%`;
+
+      const formatTime = (secs) => {
+        const m = Math.floor(secs / 60).toString().padStart(2, '0');
+        const s = Math.floor(secs % 60).toString().padStart(2, '0');
+        return `${m}:${s}`;
+      };
+      document.getElementById('dockTrackTime').textContent = `${formatTime(currentTime)} / ${formatTime(duration)}`;
+    }
+
+    function updateDockButtons() {
+      const p = state.audioPlayers[state.currentlyPlaying];
+      const isPlaying = p && p.state === 'playing';
+      const playPauseBtn = document.getElementById('dockBtnPlayPause');
+      playPauseBtn.innerHTML = `<i data-lucide="${isPlaying ? 'pause' : 'play'}" class="w-4 h-4 sm:w-5 sm:h-5 fill-white"></i>`;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // Scrubbing in progress bar
+    document.getElementById('dockProgressBarContainer').addEventListener('click', (e) => {
+      const p = state.audioPlayers[state.currentlyPlaying];
+      if (p && p.element && p.element.duration) {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const clickRatio = (e.clientX - rect.left) / rect.width;
+        p.element.currentTime = clickRatio * p.element.duration;
+      }
+    });
+
+    /* ====================================================================
+       7. ACTIONS, MODALS & RECORDING
+       ==================================================================== */
+    function openModal(modalId) {
+      document.getElementById(modalId).classList.remove('hidden');
+    }
+    function closeModal(modalId) {
+      document.getElementById(modalId).classList.add('hidden');
+    }
+
+    function setPlayFilter(filter) {
+      state.activeFilter = filter;
+      renderApp();
+    }
+
+    function openNewAudioModalForPlay(playId) {
+      populatePlaySelect(playId);
+      document.getElementById('inputAudioEditId').value = '';
+      document.getElementById('formNewAudio').reset();
+      document.getElementById('titleModalAudio').textContent = 'Anexar Áudio à Peça Teatral';
+      selectedFileBlob = null;
+      selectedPresetType = null;
+      document.getElementById('selectedFileName').classList.add('hidden');
+      openModal('modalNewAudio');
+    }
+
+    function populatePlaySelect(selectedPlayId = null) {
+      const sel = document.getElementById('selectAudioPlay');
+      sel.innerHTML = state.plays.map(p => 
+        `<option value="${p.id}" ${p.id === selectedPlayId ? 'selected' : ''}>${escapeHtml(p.name)}</option>`
+      ).join('');
+    }
+
+    function editPlay(playId) {
+      const play = state.plays.find(p => p.id === playId);
+      if (!play) return;
+
+      document.getElementById('inputPlayEditId').value = play.id;
+      document.getElementById('inputPlayName').value = play.name;
+      document.getElementById('inputPlayDescription').value = play.description || '';
+      const colorRadio = document.querySelector(`input[name="playColor"][value="${play.color || 'blue'}"]`);
+      if (colorRadio) colorRadio.checked = true;
+
+      document.getElementById('titleModalPlay').textContent = 'Editar Peça Teatral';
+      openModal('modalNewPlay');
+    }
+
+    function editAudio(audioId) {
+      const audio = state.audios.find(a => a.id === audioId);
+      if (!audio) return;
+
+      populatePlaySelect(audio.playId);
+      document.getElementById('inputAudioEditId').value = audio.id;
+      document.getElementById('inputAudioTitle').value = audio.title;
+      document.getElementById('inputAudioScene').value = audio.scene || '';
+      document.getElementById('selectAudioCategory').value = audio.category || 'Trilha Musical';
+      document.getElementById('inputAudioLoop').checked = !!audio.isLoop;
+      document.getElementById('inputAudioVolume').value = audio.volume ?? 1.0;
+      document.getElementById('inputAudioVolumeLabel').textContent = `${Math.round((audio.volume ?? 1.0) * 100)}%`;
+
+      document.getElementById('titleModalAudio').textContent = 'Editar Áudio da Peça';
+      openModal('modalNewAudio');
+    }
+
+    async function deleteAudio(audioId) {
+      if (!confirm('Deseja realmente remover este áudio da peça?')) return;
+      stopAudio(audioId);
+      state.audios = state.audios.filter(a => a.id !== audioId);
+      await persistMetadata();
+      renderApp();
+    }
+
+    async function deletePlay(playId) {
+      const play = state.plays.find(p => p.id === playId);
+      if (!confirm(`Deseja excluir a peça "${play?.name}" e todos os seus áudios anexados?`)) return;
+
+      const toRemove = state.audios.filter(a => a.playId === playId);
+      toRemove.forEach(a => stopAudio(a.id));
+
+      state.audios = state.audios.filter(a => a.playId !== playId);
+      state.plays = state.plays.filter(p => p.id !== playId);
+
+      if (state.activeFilter === playId) state.activeFilter = 'all';
+
+      await persistMetadata();
+      renderApp();
+    }
+
+    // Source selection tabs handling
+    let selectedFileBlob = null;
+    let selectedPresetType = null;
+
+    function switchSourceTab(activeTab) {
+      ['File', 'Url', 'Record', 'Preset'].forEach((t) => {
+        const btn = document.getElementById(`tabSource${t}`);
+        const panel = document.getElementById(`sourcePanel${t}`);
+        if (t === activeTab) {
+          btn.className = 'flex-1 py-1.5 rounded-lg font-bold bg-blue-600 text-white transition-all text-center';
+          panel.classList.remove('hidden');
+        } else {
+          btn.className = 'flex-1 py-1.5 rounded-lg font-semibold text-slate-400 hover:text-white transition-all text-center';
+          panel.classList.add('hidden');
+        }
+      });
+    }
+
+    document.getElementById('tabSourceFile').addEventListener('click', () => switchSourceTab('File'));
+    document.getElementById('tabSourceUrl').addEventListener('click', () => switchSourceTab('Url'));
+    document.getElementById('tabSourceRecord').addEventListener('click', () => switchSourceTab('Record'));
+    document.getElementById('tabSourcePreset').addEventListener('click', () => switchSourceTab('Preset'));
+
+    function selectAudioPreset(type) {
+      selectedPresetType = type;
+      selectedFileBlob = null;
+      document.getElementById('selectedFileName').classList.remove('hidden');
+      document.getElementById('selectedFileName').textContent = `✓ Efeito Selecionado: ${type.toUpperCase()}`;
+      if (!document.getElementById('inputAudioTitle').value) {
+        document.getElementById('inputAudioTitle').value = `Efeito - ${type.toUpperCase()}`;
+      }
+    }
+
+    // Audio recording logic
+    document.getElementById('btnStartRecording').addEventListener('click', async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        recordedChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) recordedChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = () => {
+          selectedFileBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+          selectedPresetType = null;
+          const preview = document.getElementById('recordedAudioPreview');
+          preview.src = URL.createObjectURL(selectedFileBlob);
+          preview.classList.remove('hidden');
+          document.getElementById('selectedFileName').classList.remove('hidden');
+          document.getElementById('selectedFileName').textContent = `✓ Gravação Concluída (${Math.round(selectedFileBlob.size / 1024)} KB)`;
+          if (!document.getElementById('inputAudioTitle').value) {
+            document.getElementById('inputAudioTitle').value = `Gravação - ${new Date().toLocaleTimeString()}`;
+          }
+        };
+
+        mediaRecorder.start();
+        document.getElementById('btnStartRecording').classList.add('hidden');
+        document.getElementById('btnStopRecording').classList.remove('hidden');
+        document.getElementById('recordingTimer').classList.remove('hidden');
+
+        recordingSeconds = 0;
+        recordingInterval = setInterval(() => {
+          recordingSeconds++;
+          const m = Math.floor(recordingSeconds / 60).toString().padStart(2, '0');
+          const s = Math.floor(recordingSeconds % 60).toString().padStart(2, '0');
+          document.getElementById('recordingTimer').textContent = `${m}:${s}`;
+        }, 1000);
+      } catch (err) {
+        alert('Não foi possível acessar o microfone: ' + err.message);
+      }
+    });
+
+    document.getElementById('btnStopRecording').addEventListener('click', () => {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+        mediaRecorder.stream.getTracks().forEach(t => t.stop());
+        clearInterval(recordingInterval);
+        document.getElementById('btnStartRecording').classList.remove('hidden');
+        document.getElementById('btnStopRecording').classList.add('hidden');
+      }
+    });
+
+    /* ====================================================================
+       8. CLOUD SYNC & FIREBASE INTEGRATION
+       ==================================================================== */
+    function initFirebase(config) {
+      try {
+        if (!state.firebaseApp) {
+          state.firebaseApp = firebase.initializeApp(config);
+          state.firestoreDb = firebase.firestore();
+          document.getElementById('cloudSyncStatusBanner').classList.remove('hidden');
+          
+          // Listen to real-time changes
+          state.firestoreDb.collection('ejc_lourdes').doc('soundboard').onSnapshot((doc) => {
+            if (doc.exists) {
+              const data = doc.data();
+              if (data.plays && data.updatedAt > (state.lastLocalUpdate || 0)) {
+                state.plays = data.plays;
+                state.audios = data.audios || [];
+                renderApp();
+              }
+            }
+          });
+        }
+      } catch (err) {
+        console.error('Falha ao inicializar Firebase:', err);
+      }
+    }
+
+    async function syncToFirebase() {
+      if (!state.firestoreDb) return;
+      try {
+        state.lastLocalUpdate = Date.now();
+        await state.firestoreDb.collection('ejc_lourdes').doc('soundboard').set({
+          plays: state.plays,
+          audios: state.audios.map(({ ...rest }) => rest),
+          updatedAt: state.lastLocalUpdate
+        }, { merge: true });
+        console.log('Sincronizado com Firebase com sucesso!');
+      } catch (err) {
+        console.error('Erro na sincronização Firebase:', err);
+      }
+    }
+
+    document.getElementById('btnConnectFirebase').addEventListener('click', async () => {
+      const configStr = document.getElementById('inputFirebaseConfig').value.trim();
+      if (!configStr) {
+        alert('Por favor, cole a configuração JSON do Firebase.');
+        return;
+      }
+      try {
+        const config = JSON.parse(configStr);
+        state.firebaseConfig = config;
+        initFirebase(config);
+        await persistMetadata();
+        await syncToFirebase();
+        alert('Conectado à Nuvem com sucesso!');
+        closeModal('modalCloud');
+      } catch (err) {
+        alert('Configuração inválida. Verifique o formato JSON: ' + err.message);
+      }
+    });
+
+    document.getElementById('btnPushToCloud').addEventListener('click', async () => {
+      await syncToFirebase();
+      alert('Dados enviados para a nuvem com sucesso!');
+    });
+
+    document.getElementById('btnManualCloudSync')?.addEventListener('click', async () => {
+      await syncToFirebase();
+      alert('Sincronização concluída!');
+    });
+
+    // Copy Share Code
+    document.getElementById('btnCopyShareCode').addEventListener('click', () => {
+      const packageData = {
+        name: 'eJC Lourdes Sonoplastia',
+        plays: state.plays,
+        audios: state.audios
+      };
+      const code = btoa(unescape(encodeURIComponent(JSON.stringify(packageData))));
+      navigator.clipboard.writeText(code).then(() => {
+        alert('Código de compartilhamento copiado para a área de transferência! Envie para o WhatsApp da equipe.');
+      });
+    });
+
+    /* ====================================================================
+       9. INITIALIZATION, ATALHOS & EVENT LISTENERS
+       ==================================================================== */
+    document.addEventListener('DOMContentLoaded', async () => {
+      await initDB();
+      await loadSavedData();
+      renderApp();
+
+      // Panic Button (Parar Tudo)
+      document.getElementById('btnStopAll').addEventListener('click', () => {
+        stopAllAudios(true);
+      });
+
+      // Master Volume Slider
+      const masterVol = document.getElementById('masterVolume');
+      masterVol.value = state.masterVolume;
+      masterVol.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        state.masterVolume = val;
+        state.isMuted = false;
+        document.getElementById('masterVolumeLabel').textContent = `${Math.round(val * 100)}%`;
+        updateAllPlayersVolume();
+        persistMetadata();
+      });
+
+      // Mute Toggle
+      document.getElementById('btnMuteMaster').addEventListener('click', () => {
+        state.isMuted = !state.isMuted;
+        const icon = document.getElementById('masterVolumeIcon');
+        if (state.isMuted) {
+          icon.setAttribute('data-lucide', 'volume-x');
+          document.getElementById('masterVolumeLabel').textContent = 'MUDO';
+        } else {
+          icon.setAttribute('data-lucide', 'volume-2');
+          document.getElementById('masterVolumeLabel').textContent = `${Math.round(state.masterVolume * 100)}%`;
+        }
+        updateAllPlayersVolume();
+        if (window.lucide) lucide.createIcons();
+      });
+
+      function updateAllPlayersVolume() {
+        Object.keys(state.audioPlayers).forEach((id) => {
+          const p = state.audioPlayers[id];
+          const audioMeta = state.audios.find(a => a.id === id);
+          const trackVol = audioMeta ? (audioMeta.volume ?? 1.0) : 1.0;
+          if (p && p.element) {
+            p.element.volume = state.isMuted ? 0 : Math.min(1.0, state.masterVolume * trackVol);
+          }
+        });
+      }
+
+      // Audio volume in modal slider
+      document.getElementById('inputAudioVolume').addEventListener('input', (e) => {
+        document.getElementById('inputAudioVolumeLabel').textContent = `${Math.round(e.target.value * 100)}%`;
+      });
+
+      // Toggle Playback Mode (Solo vs Multi)
+      document.getElementById('btnTogglePlaybackMode').addEventListener('click', () => {
+        state.playbackMode = state.playbackMode === 'single' ? 'multi' : 'single';
+        document.getElementById('playbackModeText').textContent = 
+          state.playbackMode === 'single' ? 'Tocar 1 por Vez' : 'Sobrepor Áudios';
+        persistMetadata();
+      });
+
+      // Search Filter
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        state.searchQuery = e.target.value;
+        renderPlaySections();
+        if (window.lucide) lucide.createIcons();
+      });
+
+      // Modals
+      document.getElementById('btnOpenNewPlayModal').addEventListener('click', () => {
+        document.getElementById('inputPlayEditId').value = '';
+        document.getElementById('formNewPlay').reset();
+        document.getElementById('titleModalPlay').textContent = 'Cadastrar Nova Peça Teatral';
+        openModal('modalNewPlay');
+      });
+
+      document.getElementById('btnOpenNewAudioModal').addEventListener('click', () => {
+        if (state.plays.length === 0) {
+          alert('Por favor, crie uma peça teatral primeiro antes de anexar áudios.');
+          openModal('modalNewPlay');
+          return;
+        }
+        openNewAudioModalForPlay(state.activeFilter !== 'all' ? state.activeFilter : state.plays[0].id);
+      });
+
+      document.getElementById('btnOpenCloudModal').addEventListener('click', () => openModal('modalCloud'));
+      document.getElementById('btnOpenSettingsModal').addEventListener('click', () => openModal('modalSettings'));
+      document.getElementById('btnLoadDemoData')?.addEventListener('click', async () => {
+        await loadDefaultEJCData();
+        renderApp();
+      });
+
+      // Dock controls
+      document.getElementById('dockBtnPlayPause').addEventListener('click', () => {
+        if (state.currentlyPlaying) {
+          const p = state.audioPlayers[state.currentlyPlaying];
+          if (p && p.state === 'playing') pauseAudio(state.currentlyPlaying);
+          else if (p) playAudio(state.currentlyPlaying);
+        }
+      });
+      document.getElementById('dockBtnStop').addEventListener('click', () => {
+        if (state.currentlyPlaying) stopAudio(state.currentlyPlaying);
+      });
+      document.getElementById('dockBtnFadeOut').addEventListener('click', () => {
+        if (state.currentlyPlaying) fadeOutAudio(state.currentlyPlaying);
+      });
+      document.getElementById('dockBtnLoop').addEventListener('click', () => {
+        if (state.currentlyPlaying) toggleAudioLoop(state.currentlyPlaying);
+      });
+
+      // Play Form Submit
+      document.getElementById('formNewPlay').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const editId = document.getElementById('inputPlayEditId').value;
+        const name = document.getElementById('inputPlayName').value.trim();
+        const description = document.getElementById('inputPlayDescription').value.trim();
+        const colorRadio = document.querySelector('input[name="playColor"]:checked');
+        const color = colorRadio ? colorRadio.value : 'blue';
+
+        if (!name) return;
+
+        if (editId) {
+          const play = state.plays.find(p => p.id === editId);
+          if (play) {
+            play.name = name;
+            play.description = description;
+            play.color = color;
+          }
+        } else {
+          state.plays.push({
+            id: `play-${Date.now()}`,
+            name,
+            description,
+            color,
+            createdAt: Date.now()
+          });
+        }
+
+        await persistMetadata();
+        closeModal('modalNewPlay');
+        renderApp();
+      });
+
+      // Dropzone
+      const dropzone = document.getElementById('dropzone');
+      const fileInput = document.getElementById('inputAudioFile');
+      dropzone.addEventListener('click', () => fileInput.click());
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          selectedFileBlob = e.target.files[0];
+          selectedPresetType = null;
+          document.getElementById('selectedFileName').classList.remove('hidden');
+          document.getElementById('selectedFileName').textContent = `✓ Arquivo: ${selectedFileBlob.name} (${Math.round(selectedFileBlob.size / 1024)} KB)`;
+          if (!document.getElementById('inputAudioTitle').value) {
+            document.getElementById('inputAudioTitle').value = selectedFileBlob.name.replace(/\.[^/.]+$/, "");
+          }
+        }
+      });
+
+      // Audio Form Submit
+      document.getElementById('formNewAudio').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const editId = document.getElementById('inputAudioEditId').value;
+        const playId = document.getElementById('selectAudioPlay').value;
+        const title = document.getElementById('inputAudioTitle').value.trim();
+        const scene = document.getElementById('inputAudioScene').value.trim();
+        const category = document.getElementById('selectAudioCategory').value;
+        const isLoop = document.getElementById('inputAudioLoop').checked;
+        const volume = parseFloat(document.getElementById('inputAudioVolume').value) || 1.0;
+        const urlInput = document.getElementById('inputAudioUrl').value.trim();
+
+        if (editId) {
+          // Editing existing audio
+          const audio = state.audios.find(a => a.id === editId);
+          if (audio) {
+            audio.playId = playId;
+            audio.title = title;
+            audio.scene = scene;
+            audio.category = category;
+            audio.isLoop = isLoop;
+            audio.volume = volume;
+
+            if (selectedFileBlob) {
+              await saveAudioBlob(audio.blobKey || audio.id, selectedFileBlob);
+            } else if (selectedPresetType) {
+              const presetBlob = await generateSoundEffectBlob(selectedPresetType);
+              await saveAudioBlob(audio.blobKey || audio.id, presetBlob);
+            }
+          }
+        } else {
+          // Creating new audio
+          if (!selectedFileBlob && !selectedPresetType && !urlInput) {
+            alert('Por favor, selecione um arquivo de áudio, escolha um efeito sonoro pré-gerado, faça uma gravação ou insira uma URL.');
+            return;
+          }
+
+          const audioId = `audio-${Date.now()}`;
+          let blobKey = audioId;
+
+          if (selectedFileBlob) {
+            await saveAudioBlob(audioId, selectedFileBlob);
+          } else if (selectedPresetType) {
+            const presetBlob = await generateSoundEffectBlob(selectedPresetType);
+            await saveAudioBlob(audioId, presetBlob);
+          }
+
+          const newAudio = {
+            id: audioId,
+            playId,
+            title,
+            scene,
+            category,
+            isLoop,
+            blobKey: urlInput ? null : blobKey,
+            sourceUrl: urlInput || null,
+            duration: '02:30',
+            volume,
+            order: state.audios.filter(a => a.playId === playId).length + 1
+          };
+
+          state.audios.push(newAudio);
+        }
+
+        await persistMetadata();
+        closeModal('modalNewAudio');
+        renderApp();
+      });
+
+      // Screen Wake Lock Toggle
+      document.getElementById('btnToggleWakeLock').addEventListener('click', async () => {
+        if ('wakeLock' in navigator) {
+          try {
+            if (!state.wakeLockSentinel) {
+              state.wakeLockSentinel = await navigator.wakeLock.request('screen');
+              document.getElementById('wakeLockText').textContent = 'Tela Ligada';
+              document.getElementById('btnToggleWakeLock').className = 'flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-2 rounded-xl text-xs font-bold transition-colors';
+            } else {
+              await state.wakeLockSentinel.release();
+              state.wakeLockSentinel = null;
+              document.getElementById('wakeLockText').textContent = 'Tela Ativa';
+              document.getElementById('btnToggleWakeLock').className = 'flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-2 rounded-xl text-xs border border-slate-700 transition-colors';
+            }
+          } catch (err) {
+            alert('Não foi possível ativar o Wake Lock: ' + err.message);
+          }
+        } else {
+          alert('Seu navegador não suporta a função Wake Lock.');
+        }
+      });
+
+      // Export Backup JSON
+      document.getElementById('btnExportData').addEventListener('click', () => {
+        const backupData = {
+          version: '2.0',
+          appName: 'eJC Lourdes Sonoplastia',
+          exportedAt: new Date().toISOString(),
+          plays: state.plays,
+          audios: state.audios.map(({ blobKey, ...rest }) => rest)
+        };
+        const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup_sonoplastia_ejc_lourdes_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+      });
+
+      // Import Backup JSON
+      document.getElementById('inputImportData').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            if (data.plays) {
+              state.plays = data.plays;
+              state.audios = data.audios || [];
+              await persistMetadata();
+              renderApp();
+              alert('Backup importado com sucesso!');
+              closeModal('modalSettings');
+            }
+          } catch (err) {
+            alert('Erro ao importar arquivo JSON: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      });
+
+      // Reset All Data
+      document.getElementById('btnResetAll').addEventListener('click', async () => {
+        if (confirm('Tem certeza de que deseja apagar todas as peças e áudios? Esta ação não pode ser desfeita.')) {
+          stopAllAudios();
+          state.plays = [];
+          state.audios = [];
+          await persistMetadata();
+          renderApp();
+          closeModal('modalSettings');
+        }
+      });
+
+      // Online/Offline Detection
+      window.addEventListener('online', () => {
+        const badge = document.getElementById('connectionBadge');
+        badge.className = 'flex items-center gap-1 text-emerald-400 font-medium';
+        document.getElementById('connectionText').textContent = 'Online';
+      });
+      window.addEventListener('offline', () => {
+        const badge = document.getElementById('connectionBadge');
+        badge.className = 'flex items-center gap-1 text-amber-400 font-medium';
+        document.getElementById('connectionText').textContent = 'Modo Retiro (Offline 100%)';
+      });
+      if (!navigator.onLine) {
+        document.getElementById('connectionText').textContent = 'Modo Retiro (Offline 100%)';
+      }
+
+      // Keyboard Shortcuts Listener
+      window.addEventListener('keydown', (e) => {
+        if (['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName)) return;
+
+        // Spacebar -> Stop All
+        if (e.code === 'Space') {
+          e.preventDefault();
+          stopAllAudios(true);
+        }
+        // F -> Fade out active
+        else if (e.key === 'f' || e.key === 'F') {
+          if (state.currentlyPlaying) fadeOutAudio(state.currentlyPlaying);
+        }
+        // M -> Mute toggle
+        else if (e.key === 'm' || e.key === 'M') {
+          document.getElementById('btnMuteMaster').click();
+        }
+        // 1 to 9 -> Trigger first 9 tracks of active filter
+        else if (e.key >= '1' && e.key <= '9') {
+          const num = parseInt(e.key, 10);
+          const currentPlayAudios = state.activeFilter === 'all'
+            ? state.audios
+            : state.audios.filter(a => a.playId === state.activeFilter);
+          if (currentPlayAudios[num - 1]) {
+            playAudio(currentPlayAudios[num - 1].id);
+          }
+        }
+      });
+
+      // PWA Install Prompt Listener
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        const installBtn = document.getElementById('btnInstallPwa');
+        installBtn.classList.remove('hidden');
+        installBtn.classList.add('inline-flex');
+      });
+
+      document.getElementById('btnInstallPwa').addEventListener('click', async () => {
+        if (deferredInstallPrompt) {
+          deferredInstallPrompt.prompt();
+          const { outcome } = await deferredInstallPrompt.userChoice;
+          if (outcome === 'accepted') {
+            document.getElementById('btnInstallPwa').classList.add('hidden');
+          }
+          deferredInstallPrompt = null;
+        }
+      });
+
+      // Register Service Worker
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').then((reg) => {
+          console.log('[Service Worker] Registrado com sucesso:', reg.scope);
+        }).catch((err) => {
+          console.warn('[Service Worker] Falha no registro:', err);
+        });
+      }
+    });
+
+    // Helper: Escape HTML
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>
