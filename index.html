@@ -228,14 +228,38 @@
   <main class="max-w-7xl mx-auto px-3 sm:px-6 py-5 flex-1 w-full">
     
     <!-- Cloud Status Banner (When Cloud Sync is configured) -->
-    <div id="cloudSyncStatusBanner" class="hidden mb-4 p-3 bg-blue-950/40 border border-blue-500/30 rounded-xl flex items-center justify-between text-xs text-blue-200">
+    <div id="cloudSyncStatusBanner" class="hidden mb-3 p-3 bg-blue-950/40 border border-blue-500/30 rounded-xl flex items-center justify-between text-xs text-blue-200">
       <div class="flex items-center gap-2">
         <i data-lucide="cloud-check" class="w-4 h-4 text-emerald-400"></i>
-        <span>Sincronização em Nuvem Ativa. Todas as alterações são salvas automaticamente na nuvem e no aparelho.</span>
+        <span>Sincronização em Nuvem Ativa. Peças e dados sincronizados em tempo real.</span>
       </div>
       <button id="btnManualCloudSync" class="px-2.5 py-1 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-semibold text-[11px] flex items-center gap-1">
         <i data-lucide="refresh-cw" class="w-3 h-3"></i>
-        <span>Sincronizar Agora</span>
+        <span>Sincronizar</span>
+      </button>
+    </div>
+
+    <!-- PC Pending Upload Banner -->
+    <div id="pcPendingUploadBanner" class="hidden mb-3 p-3 bg-indigo-950/60 border border-indigo-500/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-indigo-200">
+      <div class="flex items-center gap-2">
+        <i data-lucide="upload-cloud" class="w-4 h-4 text-blue-400 flex-shrink-0"></i>
+        <span><strong id="pcPendingUploadCount">0 áudios</strong> salvos neste computador ainda não foram enviados para o celular.</span>
+      </div>
+      <button id="btnBannerUploadAllAudios" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1.5 flex-shrink-0 shadow-md">
+        <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i>
+        <span>Enviar Áudios para Nuvem Agora</span>
+      </button>
+    </div>
+
+    <!-- Missing / Downloadable Audios Notification Banner -->
+    <div id="offlineDownloadAlertBanner" class="hidden mb-3 p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-emerald-200">
+      <div class="flex items-center gap-2">
+        <i data-lucide="download-cloud" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
+        <span><strong id="offlineDownloadAlertCount">0 áudios</strong> disponíveis na nuvem para baixar neste aparelho.</span>
+      </div>
+      <button id="btnBannerDownloadAllAudios" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1.5 flex-shrink-0 shadow-md">
+        <i data-lucide="hard-drive-download" class="w-3.5 h-3.5"></i>
+        <span>Baixar para Usar 100% Offline</span>
       </button>
     </div>
 
@@ -592,18 +616,84 @@
           </button>
         </div>
 
-        <!-- Room Code / Share Link -->
+        <!-- Audio Cloud Storage Section (Sends MP3/WAV to Firebase Storage so Mobile can play) -->
+        <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2 mt-4">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="upload-cloud" class="w-4 h-4 text-blue-400"></i>
+              <span>Enviar Áudios deste PC para o Celular (Storage)</span>
+            </h4>
+            <span id="cloudAudiosStatusBadge" class="text-[10px] font-mono bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-500/30">
+              Sincronizar
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Envia os arquivos MP3/WAV salvos no seu computador para o <b>Firebase Storage</b>. Assim, o seu celular e outros navegadores baixarão as músicas automaticamente e poderão tocá-las offline!
+          </p>
+          <div id="cloudAudioUploadProgress" class="hidden space-y-1 pt-1">
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span id="cloudAudioUploadStatus">Enviando áudios para o Firebase...</span>
+              <span id="cloudAudioUploadPercent">0%</span>
+            </div>
+            <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+              <div id="cloudAudioUploadBar" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full w-0 transition-all duration-150"></div>
+            </div>
+          </div>
+          <div class="pt-1">
+            <button id="btnUploadLocalAudiosToCloud" class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white text-xs font-bold py-2.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+              <i data-lucide="cloud-upload" class="w-4 h-4"></i>
+              <span>Enviar Áudios Locais para a Nuvem Agora</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Audio Cloud Download Section (Download for offline usage on phone/device) -->
+        <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2 mt-4">
+          <div class="flex items-center justify-between">
+            <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="download-cloud" class="w-4 h-4 text-emerald-400"></i>
+              <span>Baixar Todos os Áudios para este Aparelho (100% Offline)</span>
+            </h4>
+            <span id="cloudAudiosDownloadBadge" class="text-[10px] font-mono bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30">
+              Offline Ready
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Baixa as músicas da nuvem para a memória interna deste aparelho. Você poderá desligar a internet e tocar tudo durante o retiro sem falhas!
+          </p>
+          <div id="cloudAudioDownloadProgress" class="hidden space-y-1 pt-1">
+            <div class="flex justify-between text-[10px] text-slate-400 font-mono">
+              <span id="cloudAudioDownloadStatus">Baixando músicas para a memória interna...</span>
+              <span id="cloudAudioDownloadPercent">0%</span>
+            </div>
+            <div class="w-full bg-slate-900 h-2 rounded-full overflow-hidden border border-slate-800">
+              <div id="cloudAudioDownloadBar" class="bg-gradient-to-r from-emerald-500 to-teal-500 h-full w-0 transition-all duration-150"></div>
+            </div>
+          </div>
+          <div class="pt-1">
+            <button id="btnDownloadAllAudiosToDevice" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 active:scale-95 text-white text-xs font-bold py-2.5 rounded-xl shadow-md transition-all flex items-center justify-center gap-2">
+              <i data-lucide="hard-drive-download" class="w-4 h-4"></i>
+              <span>Baixar Todas as Músicas para Tocar Offline</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Room Code / Share Link & Full ZIP Backup -->
         <div class="p-3.5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2 mt-4">
           <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
-            <i data-lucide="share-2" class="w-4 h-4 text-emerald-400"></i>
-            <span>Compartilhar Pacote com a Equipe</span>
+            <i data-lucide="share-2" class="w-4 h-4 text-amber-400"></i>
+            <span>Compartilhar Repertório com a Equipe</span>
           </h4>
-          <p class="text-[11px] text-slate-400">
-            Gera um link ou arquivo com todo o repertório cadastrado para enviar pelo WhatsApp da equipe de som.
+          <p class="text-[11px] text-slate-400 leading-relaxed">
+            Exporte um arquivo <b>.ZIP completo</b> com todas as pastas de peças e arquivos MP3. Envie pelo WhatsApp para os membros da equipe importarem direto no celular sem precisar de nuvem!
           </p>
-          <div class="flex items-center gap-2 pt-1">
-            <button id="btnCopyShareCode" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2 rounded-xl font-medium border border-slate-700">
-              Copiar Código de Compartilhamento
+          <div class="flex flex-col sm:flex-row items-center gap-2 pt-1">
+            <button id="btnExportFullZipPackage" class="w-full sm:flex-1 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 text-white text-xs font-bold py-2.5 rounded-xl shadow flex items-center justify-center gap-1.5 transition-all">
+              <i data-lucide="archive" class="w-4 h-4"></i>
+              <span>Exportar Pacote Completo (.ZIP)</span>
+            </button>
+            <button id="btnCopyShareCode" class="w-full sm:w-auto px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs py-2.5 rounded-xl font-medium border border-slate-700 transition-colors">
+              Copiar Código
             </button>
           </div>
         </div>
@@ -834,7 +924,8 @@
       firebaseApp: null,
       firestoreDb: null,
       firebaseStorage: null,
-      lastLocalUpdate: 0
+      lastLocalUpdate: 0,
+      cachedBlobKeys: new Set()
     };
 
     // Open/Create IndexedDB
@@ -865,7 +956,27 @@
         const tx = db.transaction('audio_files', 'readwrite');
         const store = tx.objectStore('audio_files');
         store.put({ id, data: blobOrData });
-        tx.oncomplete = () => resolve();
+        tx.oncomplete = () => {
+          if (state.cachedBlobKeys) state.cachedBlobKeys.add(id);
+          updateStatusBanners();
+          resolve();
+        };
+        tx.onerror = (e) => reject(e);
+      });
+    }
+
+    // Delete audio blob in IndexedDB
+    function deleteAudioBlob(id) {
+      return new Promise((resolve, reject) => {
+        if (!db) return resolve();
+        const tx = db.transaction('audio_files', 'readwrite');
+        const store = tx.objectStore('audio_files');
+        store.delete(id);
+        tx.oncomplete = () => {
+          if (state.cachedBlobKeys) state.cachedBlobKeys.delete(id);
+          updateStatusBanners();
+          resolve();
+        };
         tx.onerror = (e) => reject(e);
       });
     }
@@ -880,6 +991,71 @@
         req.onsuccess = () => resolve(req.result ? req.result.data : null);
         req.onerror = () => resolve(null);
       });
+    }
+
+    // Refresh memory cache index of stored audio blobs
+    async function refreshCachedBlobKeys() {
+      if (!db) return;
+      return new Promise((resolve) => {
+        try {
+          const tx = db.transaction('audio_files', 'readonly');
+          const store = tx.objectStore('audio_files');
+          const req = store.getAllKeys();
+          req.onsuccess = () => {
+            state.cachedBlobKeys = new Set(req.result || []);
+            updateStatusBanners();
+            resolve(state.cachedBlobKeys);
+          };
+          req.onerror = () => resolve(new Set());
+        } catch (e) {
+          console.warn('refreshCachedBlobKeys:', e);
+          resolve(new Set());
+        }
+      });
+    }
+
+    // Update status banners (for download on mobile or upload on PC)
+    function updateStatusBanners() {
+      if (!state.audios || state.audios.length === 0) {
+        document.getElementById('offlineDownloadAlertBanner')?.classList.add('hidden');
+        document.getElementById('pcPendingUploadBanner')?.classList.add('hidden');
+        return;
+      }
+
+      let cloudPendingDownload = 0;
+      let localPendingUpload = 0;
+
+      for (const a of state.audios) {
+        const isLocallyCached = a.blobKey && state.cachedBlobKeys && state.cachedBlobKeys.has(a.blobKey);
+        if (a.sourceUrl && !isLocallyCached) {
+          cloudPendingDownload++;
+        }
+        if (isLocallyCached && !a.sourceUrl) {
+          localPendingUpload++;
+        }
+      }
+
+      const downloadBanner = document.getElementById('offlineDownloadAlertBanner');
+      if (downloadBanner) {
+        if (cloudPendingDownload > 0) {
+          downloadBanner.classList.remove('hidden');
+          const countEl = document.getElementById('offlineDownloadAlertCount');
+          if (countEl) countEl.textContent = `${cloudPendingDownload} áudio(s)`;
+        } else {
+          downloadBanner.classList.add('hidden');
+        }
+      }
+
+      const uploadBanner = document.getElementById('pcPendingUploadBanner');
+      if (uploadBanner) {
+        if (localPendingUpload > 0) {
+          uploadBanner.classList.remove('hidden');
+          const countEl = document.getElementById('pcPendingUploadCount');
+          if (countEl) countEl.textContent = `${localPendingUpload} áudio(s)`;
+        } else {
+          uploadBanner.classList.add('hidden');
+        }
+      }
     }
 
     // Persist plays & audio metadata
@@ -1419,7 +1595,11 @@
         }
 
         if (!srcUrl) {
-          alert('Arquivo de áudio não encontrado no navegador.');
+          alert(`O arquivo do áudio "${audioMeta.title}" ainda não foi baixado neste aparelho.\n\n` +
+                `Motivo: As peças sincronizaram pela nuvem, mas o arquivo MP3 físico ainda está apenas no computador de onde foi importado.\n\n` +
+                `Como resolver:\n` +
+                `1. No computador onde estão as músicas, abra o site, clique no ícone da Nuvem ☁️ e clique em "Enviar Áudios deste PC para o Celular", OU\n` +
+                `2. Neste celular, clique no botão verde "Importar Pasta" e selecione o arquivo .ZIP com os áudios para carregar diretamente.`);
           return;
         }
 
@@ -1689,6 +1869,16 @@
       const isPlaying = playerObj && playerObj.state === 'playing';
       const isPaused = playerObj && playerObj.state === 'paused';
 
+      const isCached = audio.blobKey && state.cachedBlobKeys && state.cachedBlobKeys.has(audio.blobKey);
+      let statusBadge = '';
+      if (isCached || audio.presetType) {
+        statusBadge = `<span title="Salvo na memória deste aparelho (100% Offline)" class="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">● Offline</span>`;
+      } else if (audio.sourceUrl) {
+        statusBadge = `<span title="Na Nuvem - Clique para tocar/baixar" class="text-[9px] font-bold text-blue-400 bg-blue-500/10 px-1.5 py-0.5 rounded border border-blue-500/20">☁️ Nuvem</span>`;
+      } else {
+        statusBadge = `<span title="Arquivo ainda não enviado do PC" class="text-[9px] font-bold text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">⚠️ Sem Som</span>`;
+      }
+
       return `
         <div id="card-${audio.id}" class="relative group bg-slate-950/90 rounded-2xl border ${
           isPlaying 
@@ -1701,13 +1891,14 @@
           <!-- MAIN 1-CLICK TAP AREA -->
           <div onclick="playAudio('${audio.id}')" class="cursor-pointer tap-active">
             
-            <!-- Card Header: Category, Hotkey & Equalizer -->
+            <!-- Card Header: Category, Status, Hotkey & Equalizer -->
             <div class="flex items-center justify-between mb-2">
-              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${c.badge} border truncate max-w-[150px]">
+              <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${c.badge} border truncate max-w-[120px]">
                 ${escapeHtml(audio.category || 'Trilha')}
               </span>
 
               <div class="flex items-center gap-1.5">
+                ${statusBadge}
                 ${audio.isLoop ? `<span title="Em repetição contínua" class="text-xs text-blue-400">🔁</span>` : ''}
                 ${hotkeyNum <= 9 ? `<span title="Atalho de Teclado ${hotkeyNum}" class="text-[10px] font-mono text-slate-500 bg-slate-900 border border-slate-800 px-1.5 py-0.2 rounded hidden md:inline">#${hotkeyNum}</span>` : ''}
 
@@ -2055,7 +2246,10 @@
               if (data.plays && (!state.lastLocalUpdate || data.updatedAt > state.lastLocalUpdate)) {
                 state.plays = data.plays;
                 state.audios = data.audios || [];
-                // Pre-generate procedural preset sounds on this device if missing
+                renderApp();
+                updateStatusBanners();
+
+                // Pre-generate procedural preset sounds or background download cloud audios
                 for (const audio of state.audios) {
                   if (audio.presetType && audio.blobKey) {
                     const existing = await getAudioBlob(audio.blobKey);
@@ -2063,9 +2257,23 @@
                       const blob = await generateSoundEffectBlob(audio.presetType);
                       await saveAudioBlob(audio.blobKey, blob);
                     }
+                  } else if (audio.sourceUrl && audio.blobKey) {
+                    const existing = await getAudioBlob(audio.blobKey);
+                    if (!existing) {
+                      // Attempt background fetch and cache in IndexedDB for 100% offline usage!
+                      fetch(audio.sourceUrl)
+                        .then(r => r.ok ? r.blob() : null)
+                        .then(async (b) => {
+                          if (b) {
+                            await saveAudioBlob(audio.blobKey, b);
+                            renderApp();
+                            updateStatusBanners();
+                          }
+                        })
+                        .catch(() => {});
+                    }
                   }
                 }
-                renderApp();
               }
             } else {
               // First time: upload local plays and audios to cloud!
@@ -2161,6 +2369,229 @@
       });
     });
 
+    // Upload local audio files to Firebase Storage
+    async function uploadLocalAudiosToCloud() {
+      if (!state.firebaseStorage) {
+        alert('Firebase Storage não está ativo ou conectado.\n\nVerifique se o Storage está habilitado no Console do Firebase (Criação > Storage).');
+        return;
+      }
+
+      // Collect all audios that have local blobs in IndexedDB
+      const audiosToUpload = [];
+      for (const audio of state.audios) {
+        if (audio.blobKey) {
+          const blob = await getAudioBlob(audio.blobKey);
+          if (blob && (!audio.sourceUrl || !audio.sourceUrl.includes('firebasestorage'))) {
+            audiosToUpload.push({ audio, blob });
+          }
+        }
+      }
+
+      if (audiosToUpload.length === 0) {
+        alert('Todos os áudios locais deste aparelho já estão sincronizados no Firebase Storage!');
+        return;
+      }
+
+      const proceed = confirm(`Deseja enviar ${audiosToUpload.length} áudio(s) para o Firebase Storage?\n\nIsso permitirá que qualquer celular ou computador toque as músicas e as salve para usar 100% offline.`);
+      if (!proceed) return;
+
+      const progressContainer = document.getElementById('cloudAudioUploadProgress');
+      const progressBar = document.getElementById('cloudAudioUploadBar');
+      const progressPercent = document.getElementById('cloudAudioUploadPercent');
+      const progressStatus = document.getElementById('cloudAudioUploadStatus');
+      const btn = document.getElementById('btnUploadLocalAudiosToCloud');
+
+      if (progressContainer) progressContainer.classList.remove('hidden');
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50');
+      }
+
+      let uploaded = 0;
+      let errors = 0;
+
+      for (let i = 0; i < audiosToUpload.length; i++) {
+        const { audio, blob } = audiosToUpload[i];
+        const percent = Math.round(((i + 1) / audiosToUpload.length) * 100);
+        if (progressStatus) progressStatus.textContent = `Enviando (${i + 1}/${audiosToUpload.length}): ${audio.title}...`;
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (progressPercent) progressPercent.textContent = `${percent}%`;
+
+        try {
+          const safeId = audio.id.replace(/[^a-zA-Z0-9_-]/g, '_');
+          const ext = (blob.type && blob.type.includes('wav')) ? 'wav' : 'mp3';
+          const storageRef = state.firebaseStorage.ref(`audios/${safeId}.${ext}`);
+          await storageRef.put(blob, { contentType: blob.type || 'audio/mpeg' });
+          const downloadUrl = await storageRef.getDownloadURL();
+          audio.sourceUrl = downloadUrl;
+          uploaded++;
+        } catch (err) {
+          console.error(`Erro ao subir áudio ${audio.title}:`, err);
+          errors++;
+        }
+      }
+
+      await persistMetadata();
+      await syncToFirebase();
+
+      if (progressContainer) progressContainer.classList.add('hidden');
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
+      }
+
+      renderApp();
+      updateStatusBanners();
+
+      if (errors > 0) {
+        alert(`Upload concluído com avisos:\n${uploaded} áudio(s) enviados com sucesso para a nuvem.\n${errors} falharam.\n\nSe todos falharam, certifique-se de que o Firebase Storage está ativado no Console do Firebase e com as Regras em Modo de Teste (allow read, write: if true;).`);
+      } else {
+        alert(`🎉 Sucesso total!\n${uploaded} áudio(s) foram enviados para o Firebase Storage.\n\nAgora abra o site no seu celular: os áudios já estarão disponíveis para tocar e baixar offline!`);
+      }
+    }
+
+    // Download all cloud audios to IndexedDB for 100% offline usage on phone
+    async function downloadAllAudiosToDevice() {
+      const audiosToDownload = [];
+      for (const a of state.audios) {
+        const isCached = a.blobKey && state.cachedBlobKeys && state.cachedBlobKeys.has(a.blobKey);
+        if (a.sourceUrl && !isCached) {
+          audiosToDownload.push(a);
+        }
+      }
+
+      if (audiosToDownload.length === 0) {
+        alert('Todas as músicas da nuvem já estão salvas na memória deste aparelho!\nVocê já pode tocar 100% offline.');
+        return;
+      }
+
+      const progressContainer = document.getElementById('cloudAudioDownloadProgress');
+      const progressBar = document.getElementById('cloudAudioDownloadBar');
+      const progressPercent = document.getElementById('cloudAudioDownloadPercent');
+      const progressStatus = document.getElementById('cloudAudioDownloadStatus');
+      const btn = document.getElementById('btnDownloadAllAudiosToDevice');
+
+      if (progressContainer) progressContainer.classList.remove('hidden');
+      if (btn) {
+        btn.disabled = true;
+        btn.classList.add('opacity-50');
+      }
+
+      let downloaded = 0;
+      let failed = 0;
+
+      for (let i = 0; i < audiosToDownload.length; i++) {
+        const audio = audiosToDownload[i];
+        const percent = Math.round(((i + 1) / audiosToDownload.length) * 100);
+        if (progressStatus) progressStatus.textContent = `Baixando (${i + 1}/${audiosToDownload.length}): ${audio.title}...`;
+        if (progressBar) progressBar.style.width = `${percent}%`;
+        if (progressPercent) progressPercent.textContent = `${percent}%`;
+
+        try {
+          const resp = await fetch(audio.sourceUrl);
+          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          const blob = await resp.blob();
+          const key = audio.blobKey || audio.id;
+          audio.blobKey = key;
+          await saveAudioBlob(key, blob);
+          downloaded++;
+        } catch (err) {
+          console.warn(`Falha ao baixar áudio ${audio.title}:`, err);
+          failed++;
+        }
+      }
+
+      await persistMetadata();
+      await refreshCachedBlobKeys();
+
+      if (progressContainer) progressContainer.classList.add('hidden');
+      if (btn) {
+        btn.disabled = false;
+        btn.classList.remove('opacity-50');
+      }
+
+      renderApp();
+      updateStatusBanners();
+
+      if (failed > 0) {
+        alert(`Download finalizado:\n${downloaded} áudio(s) salvos na memória do aparelho.\n${failed} falharam ao baixar.`);
+      } else {
+        alert(`🎉 Excelente!\nTodos os ${downloaded} áudio(s) foram baixados para a memória interna deste aparelho.\n\nVocê já pode usar a sonoplastia no retiro 100% sem internet!`);
+      }
+    }
+
+    // Export entire repertoire as a .ZIP package with all MP3s
+    async function exportEntireRepertoireAsZip() {
+      if (!state.audios || state.audios.length === 0) {
+        alert('Nenhum áudio ou peça cadastrada para exportar.');
+        return;
+      }
+      if (typeof JSZip === 'undefined') {
+        alert('Biblioteca de compactação ZIP ainda carregando. Tente novamente em alguns segundos.');
+        return;
+      }
+
+      const zip = new JSZip();
+      const manifest = {
+        name: 'eJC de Lourdes Sonoplastia',
+        exportedAt: new Date().toISOString(),
+        plays: state.plays,
+        audios: []
+      };
+
+      let includedCount = 0;
+      for (const audio of state.audios) {
+        const play = state.plays.find(p => p.id === audio.playId);
+        const folderName = play ? play.name.replace(/[\\/:*?"<>|]/g, '_') : 'Geral';
+        
+        let blob = null;
+        if (audio.blobKey) {
+          blob = await getAudioBlob(audio.blobKey);
+        }
+        if (!blob && audio.sourceUrl) {
+          try {
+            const resp = await fetch(audio.sourceUrl);
+            if (resp.ok) blob = await resp.blob();
+          } catch (e) {}
+        }
+
+        if (blob) {
+          const safeTitle = (audio.title || 'audio').replace(/[\\/:*?"<>|]/g, '_');
+          const ext = (blob.type && blob.type.includes('wav')) ? 'wav' : 'mp3';
+          const fileName = `${folderName}/${String(audio.order || 1).padStart(2, '0')} - ${safeTitle}.${ext}`;
+          zip.file(fileName, blob);
+          includedCount++;
+        }
+
+        manifest.audios.push({
+          id: audio.id,
+          playId: audio.playId,
+          title: audio.title,
+          scene: audio.scene,
+          category: audio.category,
+          order: audio.order,
+          duration: audio.duration
+        });
+      }
+
+      zip.file('repertorio.json', JSON.stringify(manifest, null, 2));
+
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const downloadLink = document.createElement('a');
+      downloadLink.href = URL.createObjectURL(zipBlob);
+      downloadLink.download = `Sonoplastia_eJC_Lourdes_${new Date().toISOString().slice(0, 10)}.zip`;
+      downloadLink.click();
+      URL.revokeObjectURL(downloadLink.href);
+
+      alert(`📦 Pacote ZIP gerado com ${includedCount} áudio(s)!\n\nVocê pode enviar este arquivo .ZIP pelo WhatsApp. No celular, basta abrir o site, clicar no botão verde "Importar Pasta" e selecionar o .ZIP para carregar todas as músicas instantaneamente offline.`);
+    }
+
+    document.getElementById('btnUploadLocalAudiosToCloud')?.addEventListener('click', uploadLocalAudiosToCloud);
+    document.getElementById('btnBannerUploadAllAudios')?.addEventListener('click', uploadLocalAudiosToCloud);
+    document.getElementById('btnDownloadAllAudiosToDevice')?.addEventListener('click', downloadAllAudiosToDevice);
+    document.getElementById('btnBannerDownloadAllAudios')?.addEventListener('click', downloadAllAudiosToDevice);
+    document.getElementById('btnExportFullZipPackage')?.addEventListener('click', exportEntireRepertoireAsZip);
+
     /* ====================================================================
        9. INITIALIZATION, ATALHOS & EVENT LISTENERS
        ==================================================================== */
@@ -2171,11 +2602,17 @@
         console.warn('initDB:', err);
       }
       try {
+        await refreshCachedBlobKeys();
+      } catch (err) {
+        console.warn('refreshCachedBlobKeys:', err);
+      }
+      try {
         await loadSavedData();
       } catch (err) {
         console.warn('loadSavedData:', err);
       }
       renderApp();
+      updateStatusBanners();
 
       // Panic Button (Parar Tudo)
       document.getElementById('btnStopAll').addEventListener('click', () => {
@@ -2457,9 +2894,21 @@
 
           const audioId = `audio-${Date.now()}`;
           let blobKey = audioId;
+          let sourceUrl = urlInput || null;
 
           if (selectedFileBlob) {
             await saveAudioBlob(audioId, selectedFileBlob);
+            if (state.firebaseStorage) {
+              try {
+                const safeId = audioId.replace(/[^a-zA-Z0-9_-]/g, '_');
+                const ext = (selectedFileBlob.type && selectedFileBlob.type.includes('wav')) ? 'wav' : 'mp3';
+                const storageRef = state.firebaseStorage.ref(`audios/${safeId}.${ext}`);
+                await storageRef.put(selectedFileBlob, { contentType: selectedFileBlob.type || 'audio/mpeg' });
+                sourceUrl = await storageRef.getDownloadURL();
+              } catch (storageErr) {
+                console.warn('Storage upload error in new audio:', storageErr);
+              }
+            }
           } else if (selectedPresetType) {
             const presetBlob = await generateSoundEffectBlob(selectedPresetType);
             await saveAudioBlob(audioId, presetBlob);
@@ -2474,7 +2923,7 @@
             isLoop,
             blobKey: urlInput ? null : blobKey,
             presetType: selectedPresetType || null,
-            sourceUrl: urlInput || null,
+            sourceUrl: sourceUrl,
             duration: '02:30',
             volume,
             order: state.audios.filter(a => a.playId === playId).length + 1
@@ -2484,8 +2933,10 @@
         }
 
         await persistMetadata();
+        await syncToFirebase();
         closeModal('modalNewAudio');
         renderApp();
+        updateStatusBanners();
       });
 
       // Screen Wake Lock Toggle
@@ -2900,6 +3351,20 @@
 
           const existingCount = state.audios.filter(a => a.playId === play.id).length;
 
+          let sourceUrl = null;
+          if (state.firebaseStorage) {
+            try {
+              progressStatus.textContent = `Enviando para a nuvem: ${item.title}... (${processed}/${totalFiles})`;
+              const safeId = audioId.replace(/[^a-zA-Z0-9_-]/g, '_');
+              const ext = (item.blob.type && item.blob.type.includes('wav')) ? 'wav' : 'mp3';
+              const storageRef = state.firebaseStorage.ref(`audios/${safeId}.${ext}`);
+              await storageRef.put(item.blob, { contentType: item.blob.type || 'audio/mpeg' });
+              sourceUrl = await storageRef.getDownloadURL();
+            } catch (storageErr) {
+              console.warn('Storage upload during import:', storageErr);
+            }
+          }
+
           state.audios.push({
             id: audioId,
             playId: play.id,
@@ -2908,7 +3373,7 @@
             category: item.category,
             isLoop: false,
             blobKey: audioId,
-            sourceUrl: null,
+            sourceUrl: sourceUrl,
             duration: duration,
             volume: 1.0,
             order: existingCount + 1
@@ -2917,7 +3382,9 @@
       }
 
       await persistMetadata();
+      await syncToFirebase();
       renderApp();
+      updateStatusBanners();
 
       confirmBtn.disabled = false;
       confirmBtn.classList.remove('opacity-50');

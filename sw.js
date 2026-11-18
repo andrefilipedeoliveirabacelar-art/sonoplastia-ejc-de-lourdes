@@ -3,7 +3,7 @@
    Offline-First Cache Strategy for PWA Execution & Soundboard
    ==================================================================== */
 
-const CACHE_NAME = 'ejc-sonoplastia-v2.1';
+const CACHE_NAME = 'ejc-sonoplastia-v2.3';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -12,7 +12,10 @@ const STATIC_ASSETS = [
   '/icons/icon-512.svg',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/lucide@latest',
-  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js'
+  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js',
+  'https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js',
+  'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js'
 ];
 
 // Install Event: Pre-cache core shell
