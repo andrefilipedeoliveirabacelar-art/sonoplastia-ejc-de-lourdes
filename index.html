@@ -51,6 +51,9 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js"></script>
 
+  <!-- JSZip via CDN (For Folder & ZIP Import on Mobile & PC) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
   <style>
     /* Custom Scrollbar */
     ::-webkit-scrollbar {
@@ -170,6 +173,12 @@
           <button id="btnOpenNewAudioModal" class="flex items-center gap-1 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 active:scale-95 text-white px-3 py-2 rounded-xl text-xs font-bold shadow-md shadow-blue-900/40 border border-blue-400/30 transition-all">
             <i data-lucide="music" class="w-4 h-4"></i>
             <span>+ Áudio</span>
+          </button>
+
+          <!-- Import Folder Button -->
+          <button id="btnOpenImportFolderModal" title="Importar Pasta com Peças e Áudios Organizados" class="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600/30 to-teal-600/30 hover:from-emerald-600/50 hover:to-teal-600/50 text-emerald-300 hover:text-white px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold border border-emerald-500/40 transition-all shadow-sm active:scale-95">
+            <i data-lucide="folder-input" class="w-4 h-4 text-emerald-400"></i>
+            <span class="hidden md:inline">Importar Pasta</span>
           </button>
 
           <!-- Cloud Sync Modal Button -->
@@ -664,6 +673,123 @@
           Fechar
         </button>
       </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: IMPORTAR PASTA DE ÁUDIOS & PEÇAS ================= -->
+  <div id="modalImportFolder" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full p-6 shadow-2xl max-h-[92vh] overflow-y-auto space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="font-bold text-base text-white flex items-center gap-2">
+          <i data-lucide="folder-input" class="w-5 h-5 text-emerald-400"></i>
+          <span>Importar Pasta com Peças e Áudios</span>
+        </h3>
+        <button onclick="closeModal('modalImportFolder')" class="text-slate-400 hover:text-white p-1 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="text-xs text-slate-300 leading-relaxed bg-emerald-950/30 border border-emerald-500/20 p-3.5 rounded-2xl">
+        <h4 class="font-bold text-emerald-300 mb-1 flex items-center gap-1.5">
+          <i data-lucide="sparkles" class="w-4 h-4"></i>
+          Leitura e Organização Automática
+        </h4>
+        <p>
+          Selecione uma pasta (ou arquivo .zip) no seu celular ou computador. O sistema detectará automaticamente as <b>peças teatrais</b> pelas subpastas e criará cada peça com seus <b>áudios anexados</b> prontos para tocar!
+        </p>
+      </div>
+
+      <!-- Drag & Drop Zone and Selectors -->
+      <div class="space-y-3">
+        <div id="folderDropzone" class="border-2 border-dashed border-emerald-600/40 hover:border-emerald-500 rounded-2xl p-6 text-center cursor-pointer transition-colors bg-slate-950/60">
+          <div class="w-12 h-12 mx-auto mb-2 bg-emerald-500/10 text-emerald-400 rounded-2xl flex items-center justify-center border border-emerald-500/20">
+            <i data-lucide="folder-open" class="w-6 h-6"></i>
+          </div>
+          <p class="text-sm text-slate-200 font-bold mb-0.5">Selecione uma Pasta de Áudios</p>
+          <p class="text-xs text-slate-400">Arraste a pasta para cá ou clique em uma das opções abaixo:</p>
+
+          <div class="flex flex-wrap items-center justify-center gap-2.5 mt-4">
+            <button type="button" id="btnTriggerFolderSelect" class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-950/40 transition-all flex items-center gap-1.5">
+              <i data-lucide="folder" class="w-4 h-4"></i>
+              <span>Escolher Pasta (PC)</span>
+            </button>
+            <button type="button" id="btnTriggerZipSelect" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-200 text-xs font-semibold px-4 py-2.5 rounded-xl border border-slate-700 transition-all flex items-center gap-1.5">
+              <i data-lucide="archive" class="w-4 h-4 text-amber-400"></i>
+              <span>Escolher Arquivo .ZIP (Celular / PC)</span>
+            </button>
+          </div>
+
+          <input type="file" id="inputFolderUpload" webkitdirectory directory multiple class="hidden" />
+          <input type="file" id="inputZipUpload" accept=".zip,application/zip" class="hidden" />
+        </div>
+
+        <!-- Structure hint -->
+        <div class="bg-slate-950/70 border border-slate-800/80 rounded-xl p-3 text-[11px] text-slate-400">
+          <span class="font-bold text-slate-300">Estrutura recomendada de pastas:</span>
+          <pre class="mt-1 font-mono text-[10px] text-emerald-400/90 leading-tight">
+📁 Minha Sonoplastia EJC/
+├── 📁 O Filho Pródigo/
+│   ├── 01 - Abertura.mp3
+│   └── 02 - O Abraço do Pai.mp3
+└── 📁 As Máscaras da Vida/
+    ├── 01 - Entrada com Máscaras.mp3
+    └── 02 - Queda das Máscaras.mp3</pre>
+          <p class="mt-1 text-slate-500">* Também detecta arquivos nomeados como: "Filho Pródigo - 01 Abertura.mp3".</p>
+        </div>
+
+        <!-- Detection Summary & Preview Container (Filled dynamically after selection) -->
+        <div id="importPreviewContainer" class="hidden space-y-3 pt-2">
+          <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+            <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+              <i data-lucide="list-checks" class="w-4 h-4 text-emerald-400"></i>
+              <span>Peças e Áudios Detectados:</span>
+            </h4>
+            <span id="importSummaryBadge" class="text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+              0 peças • 0 áudios
+            </span>
+          </div>
+
+          <!-- List of detected plays -->
+          <div id="importPlaysList" class="space-y-2 max-h-52 overflow-y-auto pr-1">
+            <!-- Filled dynamically -->
+          </div>
+
+          <!-- Options -->
+          <div class="pt-2 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+            <label class="flex items-center gap-2 cursor-pointer text-slate-300">
+              <input type="radio" name="importMergeMode" value="merge" checked class="text-emerald-500 bg-slate-950 border-slate-800 focus:ring-emerald-500" />
+              <span>Adicionar / Mesclar com as peças atuais</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer text-slate-400 hover:text-slate-300">
+              <input type="radio" name="importMergeMode" value="replace" class="text-rose-500 bg-slate-950 border-slate-800 focus:ring-rose-500" />
+              <span>Substituir todas as peças</span>
+            </label>
+          </div>
+
+          <!-- Progress Bar (shown during processing) -->
+          <div id="importProgressBarContainer" class="hidden space-y-1.5 pt-2">
+            <div class="flex justify-between text-[11px] text-slate-400 font-mono">
+              <span id="importProgressStatus">Processando áudios...</span>
+              <span id="importProgressPercent">0%</span>
+            </div>
+            <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
+              <div id="importProgressBar" class="bg-gradient-to-r from-emerald-500 to-teal-400 h-full w-0 transition-all duration-150 rounded-full"></div>
+            </div>
+          </div>
+
+          <!-- Action buttons -->
+          <div class="flex items-center justify-end gap-2 pt-2">
+            <button type="button" onclick="closeModal('modalImportFolder')" class="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-white rounded-xl">Cancelar</button>
+            <button type="button" id="btnConfirmImportFolder" class="px-5 py-2.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-500 active:scale-95 rounded-xl shadow-lg shadow-emerald-950/50 flex items-center gap-1.5 transition-all">
+              <i data-lucide="check" class="w-4 h-4"></i>
+              <span>Confirmar e Importar Tudo</span>
+            </button>
+          </div>
+
+        </div>
+
+      </div>
+
     </div>
   </div>
 
@@ -2133,6 +2259,93 @@
 
       document.getElementById('btnOpenCloudModal').addEventListener('click', () => openModal('modalCloud'));
       document.getElementById('btnOpenSettingsModal').addEventListener('click', () => openModal('modalSettings'));
+
+      // Open Folder Import Modal
+      document.getElementById('btnOpenImportFolderModal').addEventListener('click', () => {
+        detectedImportBatches = null;
+        document.getElementById('importPreviewContainer').classList.add('hidden');
+        document.getElementById('importProgressBarContainer').classList.add('hidden');
+        openModal('modalImportFolder');
+      });
+
+      // Folder / ZIP picker triggers
+      const folderInput = document.getElementById('inputFolderUpload');
+      const zipInput = document.getElementById('inputZipUpload');
+      const folderDropzone = document.getElementById('folderDropzone');
+
+      document.getElementById('btnTriggerFolderSelect').addEventListener('click', () => folderInput.click());
+      document.getElementById('btnTriggerZipSelect').addEventListener('click', () => zipInput.click());
+
+      folderInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files.length > 0) {
+          handleFolderFileList(e.target.files);
+        }
+      });
+
+      zipInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          handleZipFile(e.target.files[0]);
+        }
+      });
+
+      // Drag and Drop on folder dropzone
+      folderDropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        folderDropzone.classList.add('border-emerald-400', 'bg-emerald-950/20');
+      });
+      folderDropzone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        folderDropzone.classList.remove('border-emerald-400', 'bg-emerald-950/20');
+      });
+      folderDropzone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        folderDropzone.classList.remove('border-emerald-400', 'bg-emerald-950/20');
+
+        const items = e.dataTransfer.items;
+        if (items && items.length > 0) {
+          const firstFile = e.dataTransfer.files[0];
+          if (firstFile && firstFile.name.toLowerCase().endsWith('.zip')) {
+            handleZipFile(firstFile);
+            return;
+          }
+
+          const files = [];
+          async function scanEntries(entry, path = '') {
+            if (entry.isFile) {
+              const file = await new Promise(r => entry.file(r));
+              file.customRelativePath = path + file.name;
+              files.push(file);
+            } else if (entry.isDirectory) {
+              const dirReader = entry.createReader();
+              const entries = await new Promise(r => dirReader.readEntries(r));
+              for (const child of entries) {
+                await scanEntries(child, path + entry.name + '/');
+              }
+            }
+          }
+
+          for (let i = 0; i < items.length; i++) {
+            const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+            if (entry) {
+              await scanEntries(entry);
+            }
+          }
+
+          if (files.length > 0) {
+            handleFolderFileList(files);
+            return;
+          }
+        }
+
+        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleFolderFileList(e.dataTransfer.files);
+        }
+      });
+
+      // Confirm Import Button
+      document.getElementById('btnConfirmImportFolder').addEventListener('click', () => {
+        executeFolderImport();
+      });
       document.getElementById('btnLoadDemoData')?.addEventListener('click', async () => {
         await loadDefaultEJCData();
         renderApp();
@@ -2422,6 +2635,299 @@
         });
       }
     });
+
+    /* ====================================================================
+       10. BATCH FOLDER & ZIP IMPORT ENGINE (Auto-create Plays & Audios)
+       ==================================================================== */
+    let detectedImportBatches = null;
+
+    function isAudioFilename(name) {
+      return /\.(mp3|wav|ogg|m4a|aac|webm|flac|wma)$/i.test(name);
+    }
+
+    function parseAudioFileMetadata(filename, defaultCategory = 'Trilha Musical') {
+      const cleanName = filename.replace(/\.[^/.]+$/, '').trim();
+      let title = cleanName;
+      let scene = '';
+      let category = defaultCategory;
+      let order = 1;
+
+      // Extract track order (e.g. "01 - ", "1. ", "02 ")
+      const orderMatch = cleanName.match(/^(\d+)[\s._-]+(.*)/);
+      if (orderMatch) {
+        order = parseInt(orderMatch[1], 10);
+        title = orderMatch[2].trim();
+      }
+
+      // Check scene hints in parenthesis like "(Cena 1)" or "[Ao abraço]"
+      const sceneMatch = title.match(/[\(\[](cena|ato|deixa|momento)?\s*([^\]\)]+)[\)\]]/i);
+      if (sceneMatch) {
+        scene = sceneMatch[0].replace(/[\(\[\]\)]/g, '').trim();
+        title = title.replace(sceneMatch[0], '').trim();
+      }
+
+      title = title.replace(/^[-_\s]+|[-_\s]+$/g, '');
+      if (!title) title = cleanName;
+
+      // Category detection
+      const lower = cleanName.toLowerCase();
+      if (/sfx|efeito|trovao|trovão|sino|impacto|vento|aplauso|som|batida|passos|queda|chuva/i.test(lower)) {
+        category = 'Efeito Sonoro';
+      } else if (/orac|oracao|oração|mariano|espirito|reza|perdao|perdão|climax|clímax|luz|pad|suave|santissimo/i.test(lower)) {
+        category = 'Momento de Oração / Espiritualidade';
+      } else if (/voz|fala|narrad|dialogo/i.test(lower)) {
+        category = 'Voz / Fala / Narrador';
+      } else if (/transic|transição|passagem|intervalo/i.test(lower)) {
+        category = 'Transição de Cena';
+      }
+
+      return { title, scene, category, order };
+    }
+
+    function parsePlayName(relativePath, filename) {
+      const normalized = relativePath.replace(/\\/g, '/');
+      const parts = normalized.split('/').filter(p => p.trim() !== '');
+
+      if (parts.length >= 3) {
+        return parts[parts.length - 2].trim();
+      } else if (parts.length === 2) {
+        return parts[0].trim();
+      } else {
+        const sepMatch = filename.match(/^([^\-]+)\s*-\s*(.+)/);
+        if (sepMatch && sepMatch[1].length > 2 && isNaN(sepMatch[1])) {
+          return sepMatch[1].trim();
+        }
+        return 'Peça Geral Importada';
+      }
+    }
+
+    function renderImportPreview(playsMap, totalAudios) {
+      detectedImportBatches = playsMap;
+      const container = document.getElementById('importPreviewContainer');
+      const listEl = document.getElementById('importPlaysList');
+      const badgeEl = document.getElementById('importSummaryBadge');
+
+      if (totalAudios === 0) {
+        alert('Nenhum arquivo de áudio (MP3, WAV, M4A, OGG, AAC) foi encontrado nesta pasta.');
+        container.classList.add('hidden');
+        return;
+      }
+
+      badgeEl.textContent = `${playsMap.size} peça(s) • ${totalAudios} áudio(s)`;
+
+      const colors = ['blue', 'emerald', 'amber', 'purple', 'rose'];
+      let html = '';
+      let colorIdx = 0;
+
+      for (const [playName, audios] of playsMap.entries()) {
+        const c = colors[colorIdx % colors.length];
+        colorIdx++;
+        html += `
+          <div class="p-3 bg-slate-950 rounded-2xl border border-slate-800 flex items-start justify-between gap-2">
+            <div>
+              <div class="flex items-center gap-1.5 font-bold text-white text-xs">
+                <span class="w-2.5 h-2.5 rounded-full bg-${c}-400"></span>
+                <span>${escapeHtml(playName)}</span>
+              </div>
+              <p class="text-[11px] text-slate-400 mt-0.5">
+                ${audios.length} áudio(s) detectado(s): ${audios.slice(0, 3).map(a => escapeHtml(a.title)).join(', ')}${audios.length > 3 ? '...' : ''}
+              </p>
+            </div>
+            <span class="text-[10px] font-semibold bg-slate-900 border border-slate-800 text-slate-300 px-2 py-0.5 rounded-full flex-shrink-0">
+              ${audios.length} faixas
+            </span>
+          </div>
+        `;
+      }
+
+      listEl.innerHTML = html;
+      container.classList.remove('hidden');
+      if (window.lucide) lucide.createIcons();
+    }
+
+    async function handleFolderFileList(files) {
+      const playsMap = new Map();
+      let totalAudios = 0;
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        if (!isAudioFilename(file.name)) continue;
+
+        const relPath = file.customRelativePath || file.webkitRelativePath || file.name;
+        const playName = parsePlayName(relPath, file.name);
+        const meta = parseAudioFileMetadata(file.name);
+
+        if (!playsMap.has(playName)) {
+          playsMap.set(playName, []);
+        }
+
+        playsMap.get(playName).push({
+          blob: file,
+          filename: file.name,
+          title: meta.title,
+          scene: meta.scene,
+          category: meta.category,
+          order: meta.order
+        });
+        totalAudios++;
+      }
+
+      renderImportPreview(playsMap, totalAudios);
+    }
+
+    async function handleZipFile(zipFile) {
+      if (!window.JSZip) {
+        alert('Carregando biblioteca ZIP... Tente novamente em 2 segundos.');
+        return;
+      }
+      try {
+        const zip = await JSZip.loadAsync(zipFile);
+        const playsMap = new Map();
+        let totalAudios = 0;
+
+        for (const [path, entry] of Object.entries(zip.files)) {
+          if (entry.dir) continue;
+          const filename = path.split('/').pop();
+          if (!isAudioFilename(filename)) continue;
+
+          const blob = await entry.async('blob');
+          const playName = parsePlayName(path, filename);
+          const meta = parseAudioFileMetadata(filename);
+
+          if (!playsMap.has(playName)) {
+            playsMap.set(playName, []);
+          }
+
+          playsMap.get(playName).push({
+            blob: blob,
+            filename: filename,
+            title: meta.title,
+            scene: meta.scene,
+            category: meta.category,
+            order: meta.order
+          });
+          totalAudios++;
+        }
+
+        renderImportPreview(playsMap, totalAudios);
+      } catch (err) {
+        alert('Erro ao descompactar arquivo ZIP: ' + err.message);
+      }
+    }
+
+    function calculateBlobDuration(blob) {
+      return new Promise((resolve) => {
+        try {
+          const audio = new Audio();
+          const url = URL.createObjectURL(blob);
+          audio.src = url;
+          audio.onloadedmetadata = () => {
+            const secs = Math.round(audio.duration);
+            URL.revokeObjectURL(url);
+            if (isNaN(secs) || secs <= 0) return resolve('02:30');
+            const m = Math.floor(secs / 60).toString().padStart(2, '0');
+            const s = (secs % 60).toString().padStart(2, '0');
+            resolve(`${m}:${s}`);
+          };
+          audio.onerror = () => {
+            URL.revokeObjectURL(url);
+            resolve('02:30');
+          };
+        } catch (e) {
+          resolve('02:30');
+        }
+      });
+    }
+
+    async function executeFolderImport() {
+      if (!detectedImportBatches || detectedImportBatches.size === 0) return;
+
+      const mergeModeRadio = document.querySelector('input[name="importMergeMode"]:checked');
+      const isReplace = mergeModeRadio && mergeModeRadio.value === 'replace';
+
+      if (isReplace) {
+        stopAllAudios(true);
+        state.plays = [];
+        state.audios = [];
+      }
+
+      const progressContainer = document.getElementById('importProgressBarContainer');
+      const progressBar = document.getElementById('importProgressBar');
+      const progressText = document.getElementById('importProgressPercent');
+      const progressStatus = document.getElementById('importProgressStatus');
+      const confirmBtn = document.getElementById('btnConfirmImportFolder');
+
+      progressContainer.classList.remove('hidden');
+      confirmBtn.disabled = true;
+      confirmBtn.classList.add('opacity-50');
+
+      let totalFiles = 0;
+      for (const audios of detectedImportBatches.values()) {
+        totalFiles += audios.length;
+      }
+
+      let processed = 0;
+      const colors = ['blue', 'emerald', 'amber', 'purple', 'rose'];
+
+      for (const [playName, audiosList] of detectedImportBatches.entries()) {
+        let play = state.plays.find(p => p.name.trim().toLowerCase() === playName.trim().toLowerCase());
+        if (!play) {
+          const playColor = colors[state.plays.length % colors.length];
+          play = {
+            id: `play-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+            name: playName,
+            description: `Peça importada com ${audiosList.length} áudio(s)`,
+            color: playColor,
+            createdAt: Date.now()
+          };
+          state.plays.push(play);
+        }
+
+        audiosList.sort((a, b) => a.order - b.order);
+
+        for (let idx = 0; idx < audiosList.length; idx++) {
+          const item = audiosList[idx];
+          processed++;
+
+          const percent = Math.round((processed / totalFiles) * 100);
+          progressBar.style.width = `${percent}%`;
+          progressText.textContent = `${percent}%`;
+          progressStatus.textContent = `Importando: ${item.title}... (${processed}/${totalFiles})`;
+
+          const audioId = `audio-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+          const duration = await calculateBlobDuration(item.blob);
+          await saveAudioBlob(audioId, item.blob);
+
+          const existingCount = state.audios.filter(a => a.playId === play.id).length;
+
+          state.audios.push({
+            id: audioId,
+            playId: play.id,
+            title: item.title,
+            scene: item.scene || '',
+            category: item.category,
+            isLoop: false,
+            blobKey: audioId,
+            sourceUrl: null,
+            duration: duration,
+            volume: 1.0,
+            order: existingCount + 1
+          });
+        }
+      }
+
+      await persistMetadata();
+      renderApp();
+
+      confirmBtn.disabled = false;
+      confirmBtn.classList.remove('opacity-50');
+      progressContainer.classList.add('hidden');
+      closeModal('modalImportFolder');
+
+      alert(`🎉 Importação concluída com sucesso!\n${detectedImportBatches.size} peça(s) e ${totalFiles} áudio(s) organizados no seu painel.`);
+      detectedImportBatches = null;
+      document.getElementById('importPreviewContainer').classList.add('hidden');
+    }
 
     // Helper: Escape HTML
     function escapeHtml(text) {

@@ -7,7 +7,12 @@
 
 ## 🌟 O que há de novo na Versão 2.0?
 
-1. **Anexo Completo de Áudios das Peças**:
+1. **Importação Automática em Lote por Pastas ou Arquivo .ZIP (Novo!)**:
+   - **Leitura Direta de Pastas**: Basta selecionar a pasta do seu computador contendo as subpastas das peças (ex: `Pasta/O Filho Pródigo/01 - Abertura.mp3`). O sistema cria as peças e anexa cada áudio na ordem correta automaticamente!
+   - **Suporte a Arquivos .ZIP**: Ideal para quem baixa pacotes do Google Drive ou WhatsApp no celular ou computador.
+   - **Detecção Inteligente**: Identifica o número da faixa, nome da música, deixas de cena (ex: `(Cena 1)`) e tipo de áudio (Trilha, Efeito/SFX, Oração, Voz).
+
+2. **Anexo Completo de Áudios das Peças**:
    - **Upload Local**: Envie seus próprios arquivos de áudio (MP3, WAV, M4A, OGG, AAC) direto do celular ou notebook.
    - **Áudios por URL da Nuvem**: Adicione links diretos de áudios hospedados no Google Drive, Dropbox, Firebase Storage, AWS S3, etc.
    - **Gravação ao Vivo**: Grave falas de narrador, avisos ou orações com o microfone na hora.
