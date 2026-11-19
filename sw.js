@@ -3,7 +3,7 @@
    Offline-First Cache Strategy for PWA Execution & Soundboard
    ==================================================================== */
 
-const CACHE_NAME = 'ejc-sonoplastia-v2.4';
+const CACHE_NAME = 'ejc-sonoplastia-v2.5';
 const STATIC_ASSETS = [
   '/',
   '/index.html',

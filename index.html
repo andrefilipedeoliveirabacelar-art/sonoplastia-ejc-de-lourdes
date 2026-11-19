@@ -190,6 +190,11 @@
           <button id="btnOpenSettingsModal" title="Configurações, Backup e Atalhos" class="p-2 text-slate-400 hover:text-white hover:bg-slate-800 border border-slate-700/60 rounded-xl transition-colors">
             <i data-lucide="settings" class="w-4 h-4"></i>
           </button>
+
+          <!-- Clear / Remove All Button -->
+          <button id="btnOpenResetAllModal" title="Remover Todas as Peças e Áudios (Limpar Tudo)" class="p-2 text-rose-400 hover:text-white hover:bg-rose-950/50 border border-rose-500/30 hover:border-rose-500/60 rounded-xl transition-colors">
+            <i data-lucide="trash-2" class="w-4 h-4"></i>
+          </button>
         </div>
 
       </div>
@@ -793,11 +798,66 @@
 
       <!-- Reset Data -->
       <div class="pt-2 flex items-center justify-between border-t border-slate-800">
-        <button id="btnResetAll" class="text-xs text-rose-400 hover:text-rose-300 font-medium">
-          Limpar Todos os Dados
+        <button id="btnResetAll" class="text-xs text-rose-400 hover:text-rose-300 font-bold flex items-center gap-1">
+          <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+          <span>Remover Tudo do Painel</span>
         </button>
         <button onclick="closeModal('modalSettings')" class="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold rounded-xl">
           Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL: REMOVER TUDO (CONFIRMAÇÃO) ================= -->
+  <div id="modalResetAll" class="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+        <h3 class="font-bold text-base text-rose-400 flex items-center gap-2">
+          <i data-lucide="trash-2" class="w-5 h-5 text-rose-500"></i>
+          <span>Remover Tudo do Painel</span>
+        </h3>
+        <button onclick="closeModal('modalResetAll')" class="text-slate-400 hover:text-white p-1 rounded-xl">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="text-xs text-slate-300 leading-relaxed bg-rose-950/30 border border-rose-500/30 p-3.5 rounded-2xl space-y-1.5">
+        <h4 class="font-bold text-rose-300 flex items-center gap-1.5">
+          <i data-lucide="alert-triangle" class="w-4 h-4 text-rose-400"></i>
+          Atenção: Ação Definitiva
+        </h4>
+        <p>
+          Isso apagará <b>todas as peças e áudios</b> cadastrados no painel. Selecione como deseja executar a limpeza:
+        </p>
+      </div>
+
+      <!-- Scope Selection -->
+      <div class="space-y-2 text-xs">
+        <label class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-slate-700 transition-colors">
+          <input type="radio" name="resetAllScope" value="local" checked class="mt-0.5 text-rose-500 bg-slate-900 border-slate-700 focus:ring-rose-500" />
+          <div>
+            <span class="font-bold text-white block mb-0.5">Limpar apenas a memória deste aparelho</span>
+            <span class="text-[11px] text-slate-400">Remove todos os arquivos e peças salvos neste celular/computador.</span>
+          </div>
+        </label>
+
+        <label class="flex items-start gap-2.5 p-3 rounded-xl bg-slate-950 border border-slate-800 cursor-pointer hover:border-rose-900/60 transition-colors">
+          <input type="radio" name="resetAllScope" value="cloud" class="mt-0.5 text-rose-500 bg-slate-900 border-slate-700 focus:ring-rose-500" />
+          <div>
+            <span class="font-bold text-rose-300 block mb-0.5">Limpar de TUDO (deste aparelho e da Nuvem)</span>
+            <span class="text-[11px] text-slate-400">Apaga do aparelho e também limpa a nuvem para todos os membros da equipe.</span>
+          </div>
+        </label>
+      </div>
+
+      <div class="pt-2 flex items-center justify-end gap-2 border-t border-slate-800">
+        <button type="button" onclick="closeModal('modalResetAll')" class="px-4 py-2.5 text-xs font-semibold text-slate-400 hover:text-white rounded-xl">
+          Cancelar
+        </button>
+        <button type="button" id="btnConfirmResetAll" class="px-5 py-2.5 text-xs font-bold text-white bg-gradient-to-r from-rose-600 to-red-600 hover:from-rose-500 hover:to-red-500 active:scale-95 rounded-xl shadow-lg shadow-rose-950/60 flex items-center gap-1.5 transition-all">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <span>Sim, Remover Tudo</span>
         </button>
       </div>
     </div>
@@ -882,14 +942,14 @@
           </div>
 
           <!-- Options -->
-          <div class="pt-2 border-t border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-            <label class="flex items-center gap-2 cursor-pointer text-slate-300">
-              <input type="radio" name="importMergeMode" value="merge" checked class="text-emerald-500 bg-slate-950 border-slate-800 focus:ring-emerald-500" />
-              <span>Adicionar / Mesclar com as peças atuais</span>
+          <div class="pt-2 border-t border-slate-800 space-y-1.5 text-xs">
+            <label class="flex items-start sm:items-center gap-2 cursor-pointer text-slate-300">
+              <input type="radio" name="importMergeMode" value="merge" checked class="mt-0.5 sm:mt-0 text-emerald-500 bg-slate-950 border-slate-800 focus:ring-emerald-500" />
+              <span><strong class="text-white">Substituir existentes e mesclar</strong> (Recomendado — atualiza sem duplicar faixas)</span>
             </label>
-            <label class="flex items-center gap-2 cursor-pointer text-slate-400 hover:text-slate-300">
-              <input type="radio" name="importMergeMode" value="replace" class="text-rose-500 bg-slate-950 border-slate-800 focus:ring-rose-500" />
-              <span>Substituir todas as peças</span>
+            <label class="flex items-start sm:items-center gap-2 cursor-pointer text-slate-400 hover:text-slate-300">
+              <input type="radio" name="importMergeMode" value="replace" class="mt-0.5 sm:mt-0 text-rose-500 bg-slate-950 border-slate-800 focus:ring-rose-500" />
+              <span><strong class="text-rose-300">Substituir tudo</strong> (Limpa todo o repertório anterior e importa apenas esta pasta/ZIP)</span>
             </label>
           </div>
 
@@ -2171,6 +2231,48 @@
       renderApp();
     }
 
+    // Complete Repertoire Reset (Remover Tudo)
+    async function executeResetAll(scope = 'local') {
+      stopAllAudios(true);
+      state.plays = [];
+      state.audios = [];
+      state.currentlyPlaying = null;
+      state.activePlayingIds.clear();
+      state.cachedBlobKeys.clear();
+
+      if (db) {
+        try {
+          const tx = db.transaction(['audio_files', 'metadata'], 'readwrite');
+          tx.objectStore('audio_files').clear();
+          tx.objectStore('metadata').clear();
+          await new Promise((res) => { tx.oncomplete = res; tx.onerror = res; });
+        } catch (e) {
+          console.warn('Erro ao limpar IndexedDB:', e);
+        }
+      }
+
+      if (scope === 'cloud' && state.firestoreDb) {
+        try {
+          state.lastLocalUpdate = Date.now();
+          await state.firestoreDb.collection('ejc_lourdes').doc('soundboard').set({
+            plays: [],
+            audios: [],
+            updatedAt: state.lastLocalUpdate
+          });
+        } catch (e) {
+          console.warn('Erro ao limpar Firestore:', e);
+        }
+      } else {
+        await persistMetadata();
+      }
+
+      closeModal('modalResetAll');
+      closeModal('modalSettings');
+      renderApp();
+      updateStatusBanners();
+      alert('🗑️ Todas as peças e músicas foram removidas com sucesso!');
+    }
+
     // Source selection tabs handling
     let selectedFileBlob = null;
     let selectedPresetType = null;
@@ -3169,16 +3271,18 @@
         reader.readAsText(file);
       });
 
-      // Reset All Data
-      document.getElementById('btnResetAll').addEventListener('click', async () => {
-        if (confirm('Tem certeza de que deseja apagar todas as peças e áudios? Esta ação não pode ser desfeita.')) {
-          stopAllAudios();
-          state.plays = [];
-          state.audios = [];
-          await persistMetadata();
-          renderApp();
-          closeModal('modalSettings');
-        }
+      // Reset All Data Modal & Triggers
+      document.getElementById('btnOpenResetAllModal')?.addEventListener('click', () => {
+        openModal('modalResetAll');
+      });
+      document.getElementById('btnResetAll')?.addEventListener('click', () => {
+        closeModal('modalSettings');
+        openModal('modalResetAll');
+      });
+      document.getElementById('btnConfirmResetAll')?.addEventListener('click', async () => {
+        const scopeRadio = document.querySelector('input[name="resetAllScope"]:checked');
+        const scope = scopeRadio ? scopeRadio.value : 'local';
+        await executeResetAll(scope);
       });
 
       // Online/Offline Detection
@@ -3404,6 +3508,58 @@
         const playsMap = new Map();
         let totalAudios = 0;
 
+        // Check if this ZIP has the official repertorio.json manifest
+        if (zip.file('repertorio.json')) {
+          try {
+            const manifestText = await zip.file('repertorio.json').async('text');
+            const manifest = JSON.parse(manifestText);
+            if (manifest && manifest.plays && manifest.audios) {
+              for (const p of manifest.plays) {
+                playsMap.set(p.name, []);
+              }
+
+              for (const a of manifest.audios) {
+                const play = manifest.plays.find(p => p.id === a.playId);
+                const playName = play ? play.name : 'Geral';
+                const safeTitle = (a.title || '').replace(/[\\/:*?"<>|]/g, '_').toLowerCase();
+                let entry = null;
+
+                for (const [path, zFile] of Object.entries(zip.files)) {
+                  if (zFile.dir) continue;
+                  const lowPath = path.toLowerCase();
+                  if (lowPath.includes(safeTitle) || (a.order && lowPath.includes(String(a.order).padStart(2, '0')))) {
+                    entry = zFile;
+                    break;
+                  }
+                }
+
+                if (entry) {
+                  const blob = await entry.async('blob');
+                  if (!playsMap.has(playName)) playsMap.set(playName, []);
+                  playsMap.get(playName).push({
+                    blob,
+                    filename: entry.name.split('/').pop(),
+                    title: a.title,
+                    scene: a.scene || '',
+                    category: a.category || 'Trilha',
+                    order: a.order || 1,
+                    originalId: a.id
+                  });
+                  totalAudios++;
+                }
+              }
+
+              if (totalAudios > 0) {
+                renderImportPreview(playsMap, totalAudios);
+                return;
+              }
+            }
+          } catch (manifestErr) {
+            console.warn('repertorio.json parse error, fallback to scan:', manifestErr);
+          }
+        }
+
+        // Standard folder scan inside ZIP
         for (const [path, entry] of Object.entries(zip.files)) {
           if (entry.dir) continue;
           const filename = path.split('/').pop();
@@ -3432,6 +3588,41 @@
       } catch (err) {
         alert('Erro ao descompactar arquivo ZIP: ' + err.message);
       }
+    }
+
+    // Match audio by ID, normalized title or order inside a play to prevent duplicates
+    function findMatchingAudio(playId, item) {
+      if (item.originalId) {
+        const byId = state.audios.find(a => a.id === item.originalId && a.playId === playId);
+        if (byId) return byId;
+      }
+
+      const normTitle = (item.title || '').trim().toLowerCase();
+      const cleanFilename = item.filename ? item.filename.replace(/\.[^/.]+$/, "").trim().toLowerCase() : '';
+
+      return state.audios.find(a => {
+        if (a.playId !== playId) return false;
+        const aTitle = (a.title || '').trim().toLowerCase();
+
+        // 1. Direct title match
+        if (aTitle === normTitle) return true;
+
+        // 2. Clean filename match
+        if (cleanFilename && (aTitle === cleanFilename || cleanFilename.includes(aTitle) || aTitle.includes(cleanFilename))) {
+          return true;
+        }
+
+        // 3. Order number + title similarity
+        if (item.order && a.order === item.order) {
+          const strippedA = aTitle.replace(/^[0-9\s._-]+/, '').trim();
+          const strippedItem = normTitle.replace(/^[0-9\s._-]+/, '').trim();
+          if (strippedA && strippedItem && (strippedA === strippedItem || strippedA.includes(strippedItem) || strippedItem.includes(strippedA))) {
+            return true;
+          }
+        }
+
+        return false;
+      });
     }
 
     function calculateBlobDuration(blob) {
@@ -3486,6 +3677,8 @@
       }
 
       let processed = 0;
+      let replacedCount = 0;
+      let addedCount = 0;
       const colors = ['blue', 'emerald', 'amber', 'purple', 'rose'];
 
       for (const [playName, audiosList] of detectedImportBatches.entries()) {
@@ -3513,25 +3706,41 @@
           progressText.textContent = `${percent}%`;
           progressStatus.textContent = `Importando: ${item.title}... (${processed}/${totalFiles})`;
 
-          const audioId = `audio-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
           const duration = await calculateBlobDuration(item.blob);
-          await saveAudioBlob(audioId, item.blob);
+          const existingAudio = (!isReplace) ? findMatchingAudio(play.id, item) : null;
 
-          const existingCount = state.audios.filter(a => a.playId === play.id).length;
+          if (existingAudio) {
+            // Replace existing audio in-place without duplicating
+            const targetKey = existingAudio.blobKey || existingAudio.id;
+            existingAudio.blobKey = targetKey;
+            await saveAudioBlob(targetKey, item.blob);
+            existingAudio.duration = duration;
+            if (item.title) existingAudio.title = item.title;
+            if (item.category) existingAudio.category = item.category;
+            if (item.scene && !existingAudio.scene) existingAudio.scene = item.scene;
+            if (item.order) existingAudio.order = item.order;
+            replacedCount++;
+          } else {
+            // Insert new audio
+            const audioId = item.originalId || `audio-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+            await saveAudioBlob(audioId, item.blob);
+            const existingCount = state.audios.filter(a => a.playId === play.id).length;
 
-          state.audios.push({
-            id: audioId,
-            playId: play.id,
-            title: item.title,
-            scene: item.scene || '',
-            category: item.category,
-            isLoop: false,
-            blobKey: audioId,
-            sourceUrl: null,
-            duration: duration,
-            volume: 1.0,
-            order: existingCount + 1
-          });
+            state.audios.push({
+              id: audioId,
+              playId: play.id,
+              title: item.title,
+              scene: item.scene || '',
+              category: item.category || 'Trilha',
+              isLoop: false,
+              blobKey: audioId,
+              sourceUrl: null,
+              duration: duration,
+              volume: 1.0,
+              order: item.order || (existingCount + 1)
+            });
+            addedCount++;
+          }
         }
       }
 
@@ -3545,7 +3754,16 @@
       progressContainer.classList.add('hidden');
       closeModal('modalImportFolder');
 
-      alert(`🎉 Importação instantânea concluída!\n${detectedImportBatches.size} peça(s) e ${totalFiles} áudio(s) organizados no seu painel.`);
+      if (replacedCount > 0 && addedCount === 0) {
+        alert(`🎉 Importação concluída com sucesso!\n${replacedCount} áudio(s) atualizados com os novos arquivos (sem duplicar).`);
+      } else if (replacedCount > 0 && addedCount > 0) {
+        alert(`🎉 Importação concluída com sucesso!\n${replacedCount} áudio(s) substituídos (sem duplicar) e ${addedCount} novos áudios adicionados.`);
+      } else if (isReplace) {
+        alert(`🎉 Repertório substituído com sucesso com ${totalFiles} áudio(s)!`);
+      } else {
+        alert(`🎉 Importação instantânea concluída!\n${detectedImportBatches.size} peça(s) e ${totalFiles} áudio(s) organizados no seu painel.`);
+      }
+
       detectedImportBatches = null;
       document.getElementById('importPreviewContainer').classList.add('hidden');
 
