@@ -258,6 +258,10 @@
           <span id="globalTransferSpeed" class="text-emerald-400 font-bold hidden sm:inline">0.0 MB/s</span>
           <span id="globalTransferSize" class="text-slate-400">0 / 0 MB</span>
           <span id="globalTransferPercent" class="font-bold text-white bg-blue-600 px-2 py-0.5 rounded-lg">0%</span>
+          <button id="btnCancelGlobalTransfer" type="button" title="Cancelar transferência" class="px-2.5 py-1 bg-rose-600/80 hover:bg-rose-500 active:bg-rose-700 text-white font-bold rounded-lg text-[10px] transition-colors flex items-center gap-1 shadow-sm">
+            <i data-lucide="x" class="w-3 h-3"></i>
+            <span>Cancelar</span>
+          </button>
         </div>
       </div>
       <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
@@ -2367,6 +2371,12 @@
           state.firestoreDb = firebase.firestore();
           try {
             state.firebaseStorage = firebase.storage();
+            if (state.firebaseStorage.setMaxUploadRetryTime) {
+              state.firebaseStorage.setMaxUploadRetryTime(10000);
+            }
+            if (state.firebaseStorage.setMaxOperationRetryTime) {
+              state.firebaseStorage.setMaxOperationRetryTime(10000);
+            }
           } catch (e) {
             console.warn('Storage:', e);
           }
@@ -2514,7 +2524,30 @@
       if (window.lucide) lucide.createIcons();
     }
 
-    // High-speed parallel task pool (concurrency limit)
+    // Transfer Cancellation & Active Tasks Controller
+    let isTransferCancelled = false;
+    const activeUploadTasks = new Set();
+
+    function cancelCurrentTransfer() {
+      isTransferCancelled = true;
+      activeUploadTasks.forEach(task => {
+        try { task.cancel(); } catch (e) {}
+      });
+      activeUploadTasks.clear();
+      setTransferBar(false);
+      const btn = document.getElementById('btnUploadLocalAudiosToCloud');
+      const bannerBtn = document.getElementById('btnBannerUploadAllAudios');
+      const dlBtn = document.getElementById('btnDownloadAllAudiosToDevice');
+      const dlBannerBtn = document.getElementById('btnBannerDownloadAllAudios');
+      if (btn) { btn.disabled = false; btn.classList.remove('opacity-50'); }
+      if (bannerBtn) { bannerBtn.disabled = false; bannerBtn.classList.remove('opacity-50'); }
+      if (dlBtn) { dlBtn.disabled = false; dlBtn.classList.remove('opacity-50'); }
+      if (dlBannerBtn) { dlBannerBtn.disabled = false; dlBannerBtn.classList.remove('opacity-50'); }
+      document.getElementById('cloudAudioUploadProgress')?.classList.add('hidden');
+      document.getElementById('cloudAudioDownloadProgress')?.classList.add('hidden');
+    }
+
+    // High-speed parallel task pool with abort support
     async function runConcurrentPool(items, limit, taskFn) {
       if (!items || items.length === 0) return [];
       const results = new Array(items.length);
@@ -2523,6 +2556,7 @@
 
       const workers = Array.from({ length: workerCount }, async () => {
         while (nextIndex < items.length) {
+          if (isTransferCancelled) break;
           const idx = nextIndex++;
           try {
             results[idx] = await taskFn(items[idx], idx);
@@ -2534,6 +2568,49 @@
 
       await Promise.all(workers);
       return results;
+    }
+
+    // Quick Probe to test if Firebase Storage is writable within 8 seconds
+    async function testFirebaseStorageWrite(storageInstance) {
+      if (!storageInstance) return { ok: false, error: 'Firebase Storage não inicializado' };
+      return new Promise((resolve) => {
+        let isDone = false;
+        try {
+          const probeRef = storageInstance.ref('_connection_probe.txt');
+          const probeBlob = new Blob(['probe'], { type: 'text/plain' });
+          const task = probeRef.put(probeBlob);
+
+          const timer = setTimeout(() => {
+            if (!isDone) {
+              isDone = true;
+              try { task.cancel(); } catch (e) {}
+              resolve({ ok: false, error: 'Tempo limite esgotado (timeout de 8s). O servidor do Firebase Storage não respondeu.' });
+            }
+          }, 8000);
+
+          task.on(
+            'state_changed',
+            null,
+            (err) => {
+              if (!isDone) {
+                isDone = true;
+                clearTimeout(timer);
+                resolve({ ok: false, error: err });
+              }
+            },
+            async () => {
+              if (!isDone) {
+                isDone = true;
+                clearTimeout(timer);
+                try { await probeRef.delete(); } catch (e) {}
+                resolve({ ok: true });
+              }
+            }
+          );
+        } catch (e) {
+          resolve({ ok: false, error: e });
+        }
+      });
     }
 
     // Upload local audio files to Firebase Storage in High-Speed Parallel Mode (4x faster)
@@ -2568,12 +2645,87 @@
         if (!proceed) return;
       }
 
+      isTransferCancelled = false;
+      activeUploadTasks.clear();
+
       const totalBytes = audiosToUpload.reduce((sum, item) => sum + item.size, 0);
       const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
       const bytesMap = new Map();
       const startTime = Date.now();
 
+      const btn = document.getElementById('btnUploadLocalAudiosToCloud');
+      const bannerBtn = document.getElementById('btnBannerUploadAllAudios');
+      if (btn) { btn.disabled = true; btn.classList.add('opacity-50'); }
+      if (bannerBtn) { bannerBtn.disabled = true; bannerBtn.classList.add('opacity-50'); }
+
+      // 1. Pre-flight health check to verify Firebase Storage permissions & connectivity
+      setTransferBar(true, {
+        title: '<i data-lucide="zap" class="w-4 h-4 text-amber-400"></i><span>Testando Conexão com Firebase Storage...</span>',
+        speed: 'Conectando...',
+        size: `0.0 / ${totalMB} MB`,
+        percent: '0%',
+        width: '5%',
+        itemName: 'Verificando permissões de gravação...',
+        remaining: `${audiosToUpload.length} músicas aguardando`
+      });
+
+      let activeStorage = state.firebaseStorage;
+      let testRes = await testFirebaseStorageWrite(activeStorage);
+
+      if (isTransferCancelled) return;
+
+      // Fallback check to alternative bucket (.appspot.com vs .firebasestorage.app)
+      if (!testRes.ok) {
+        const currentBucket = (state.firebaseConfig && state.firebaseConfig.storageBucket) || '';
+        let altBucket = '';
+        if (currentBucket.includes('firebasestorage.app')) {
+          altBucket = currentBucket.replace('.firebasestorage.app', '.appspot.com');
+        } else if (currentBucket.includes('.appspot.com')) {
+          altBucket = currentBucket.replace('.appspot.com', '.firebasestorage.app');
+        }
+
+        if (altBucket) {
+          try {
+            const altStorage = firebase.app().storage(altBucket.startsWith('gs://') ? altBucket : `gs://${altBucket}`);
+            if (altStorage.setMaxUploadRetryTime) altStorage.setMaxUploadRetryTime(10000);
+            const altTestRes = await testFirebaseStorageWrite(altStorage);
+            if (altTestRes.ok) {
+              activeStorage = altStorage;
+              state.firebaseStorage = altStorage;
+              testRes = altTestRes;
+            }
+          } catch (e) {}
+        }
+      }
+
+      if (isTransferCancelled) return;
+
+      if (!testRes.ok) {
+        cancelCurrentTransfer();
+        let errDesc = 'Permissão negada ou Storage desativado.';
+        const errCode = (testRes.error && testRes.error.code) ? testRes.error.code : '';
+        if (errCode === 'storage/unauthorized') {
+          errDesc = 'As Regras de Segurança do Firebase Storage estão bloqueando a gravação anônima.';
+        } else if (errCode === 'storage/bucket-not-found') {
+          errDesc = 'O bucket do Firebase Storage não foi encontrado ou não foi ativado no console.';
+        } else if (typeof testRes.error === 'string') {
+          errDesc = testRes.error;
+        }
+
+        alert(
+          `⚠️ Não foi possível enviar os áudios para o Firebase Storage.\n\n` +
+          `Motivo: ${errDesc}\n\n` +
+          `💡 SOLUÇÃO RECOMENDADA (Em 3 segundos):\n` +
+          `1. Clique no botão "Gerar .ZIP" neste computador e envie o arquivo pelo WhatsApp.\n` +
+          `2. No celular, abra este site, clique em "Importar Pasta" e selecione o .ZIP!\n` +
+          `Todas as ${audiosToUpload.length} músicas carregarão em 3 segundos e funcionarão 100% offline no retiro!\n\n` +
+          `(Opcional: Para liberar o Firebase Storage no Firebase Console, acesse console.firebase.google.com > seu projeto > Storage > Regras e permita: allow read, write: if true;)`
+        );
+        return;
+      }
+
       function updateTransferProgress(currentTitle = '') {
+        if (isTransferCancelled) return;
         let transferred = 0;
         for (const b of bytesMap.values()) transferred += b;
         const elapsedSec = (Date.now() - startTime) / 1000;
@@ -2601,51 +2753,61 @@
         if (modalStatus) modalStatus.textContent = `Enviando (${transferredMB}/${totalMB} MB - ${speed} MB/s)`;
       }
 
-      const btn = document.getElementById('btnUploadLocalAudiosToCloud');
-      const bannerBtn = document.getElementById('btnBannerUploadAllAudios');
-      if (btn) { btn.disabled = true; btn.classList.add('opacity-50'); }
-      if (bannerBtn) { bannerBtn.disabled = true; bannerBtn.classList.add('opacity-50'); }
-
       updateTransferProgress('Iniciando 4 conexões simultâneas...');
 
       let uploaded = 0;
       let errors = 0;
 
-      // 4 concurrent parallel uploads
+      // 4 concurrent parallel uploads with 25s timeout per file
       await runConcurrentPool(audiosToUpload, 4, async ({ audio, blob }) => {
+        if (isTransferCancelled) return;
         const safeId = audio.id.replace(/[^a-zA-Z0-9_-]/g, '_');
         const ext = (blob.type && blob.type.includes('wav')) ? 'wav' : 'mp3';
-        const storageRef = state.firebaseStorage.ref(`audios/${safeId}.${ext}`);
+        const storageRef = activeStorage.ref(`audios/${safeId}.${ext}`);
         const uploadTask = storageRef.put(blob, { contentType: blob.type || 'audio/mpeg' });
+        activeUploadTasks.add(uploadTask);
 
-        await new Promise((resolve) => {
+        const uploadPromise = new Promise((resolve, reject) => {
           uploadTask.on(
             'state_changed',
             (snap) => {
               bytesMap.set(audio.id, snap.bytesTransferred);
               updateTransferProgress(audio.title);
             },
-            (err) => {
-              console.error(`Erro ao subir áudio ${audio.title}:`, err);
-              errors++;
-              resolve();
-            },
+            (err) => reject(err),
             async () => {
               try {
                 bytesMap.set(audio.id, blob.size || (1024 * 1024));
                 const downloadUrl = await uploadTask.snapshot.ref.getDownloadURL();
                 audio.sourceUrl = downloadUrl;
                 uploaded++;
+                resolve();
               } catch (e) {
-                console.error('getDownloadURL err:', e);
-                errors++;
+                reject(e);
               }
-              updateTransferProgress(audio.title);
-              resolve();
             }
           );
         });
+
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => {
+            try { uploadTask.cancel(); } catch (e) {}
+            reject(new Error(`Timeout de 25s para áudio: ${audio.title}`));
+          }, 25000);
+        });
+
+        try {
+          await Promise.race([uploadPromise, timeoutPromise]);
+        } catch (err) {
+          console.warn(`Erro no upload do áudio ${audio.title}:`, err);
+          errors++;
+        } finally {
+          activeUploadTasks.delete(uploadTask);
+          updateTransferProgress(audio.title);
+        }
       });
+
+      if (isTransferCancelled) return;
 
       await persistMetadata();
       await syncToFirebase();
@@ -2659,8 +2821,10 @@
       updateStatusBanners();
 
       if (!isSilentAutoMode) {
-        if (errors > 0) {
-          alert(`Upload finalizado:\n${uploaded} áudio(s) enviados com sucesso.\n${errors} falharam.`);
+        if (errors > 0 && uploaded === 0) {
+          alert(`⚠️ Nenhum áudio pôde ser enviado.\n\nRecomendação: Clique em "Gerar .ZIP" e envie pelo WhatsApp para carregar tudo no celular em 3 segundos!`);
+        } else if (errors > 0) {
+          alert(`Upload parcial:\n${uploaded} áudio(s) enviados com sucesso.\n${errors} falharam.`);
         } else {
           alert(`⚡ Concluído em alta velocidade!\nTodos os ${uploaded} áudio(s) foram enviados para o Firebase Storage.\n\nAgora abra no celular: tudo já estará pronto para tocar e baixar offline.`);
         }
@@ -2809,6 +2973,16 @@
         audios: []
       };
 
+      setTransferBar(true, {
+        title: '<i data-lucide="archive" class="w-4 h-4 text-amber-400"></i><span>Gerando Pacote .ZIP para WhatsApp...</span>',
+        speed: 'Processando...',
+        size: `${state.audios.length} áudios`,
+        percent: '5%',
+        width: '5%',
+        itemName: 'Lendo arquivos do banco de dados...',
+        remaining: 'Aguarde'
+      });
+
       let includedCount = 0;
       for (const audio of state.audios) {
         const play = state.plays.find(p => p.id === audio.playId);
@@ -2846,14 +3020,28 @@
 
       zip.file('repertorio.json', JSON.stringify(manifest, null, 2));
 
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      const zipBlob = await zip.generateAsync({ type: 'blob' }, (meta) => {
+        const p = Math.round(meta.percent);
+        setTransferBar(true, {
+          title: '<i data-lucide="archive" class="w-4 h-4 text-amber-400"></i><span>Compactando Repertório .ZIP...</span>',
+          speed: `${p}%`,
+          size: `${includedCount} áudios`,
+          percent: `${p}%`,
+          width: `${p}%`,
+          itemName: meta.currentFile ? `Compactando: ${meta.currentFile}` : 'Finalizando arquivo .ZIP...',
+          remaining: 'Pronto em segundos'
+        });
+      });
+
+      setTransferBar(false);
+
       const downloadLink = document.createElement('a');
       downloadLink.href = URL.createObjectURL(zipBlob);
       downloadLink.download = `Sonoplastia_eJC_Lourdes_${new Date().toISOString().slice(0, 10)}.zip`;
       downloadLink.click();
       URL.revokeObjectURL(downloadLink.href);
 
-      alert(`📦 Pacote ZIP gerado com ${includedCount} áudio(s)!\n\nVocê pode enviar este arquivo .ZIP pelo WhatsApp. No celular, basta abrir o site, clicar no botão verde "Importar Pasta" e selecionar o .ZIP para carregar todas as músicas instantaneamente offline.`);
+      alert(`📦 Pacote ZIP gerado com sucesso com ${includedCount} áudio(s)!\n\nEnvie este arquivo .ZIP pelo WhatsApp. No celular, abra o site, clique no botão verde "Importar Pasta" e selecione o .ZIP para carregar todas as músicas instantaneamente 100% offline.`);
     }
 
     document.getElementById('btnUploadLocalAudiosToCloud')?.addEventListener('click', uploadLocalAudiosToCloud);
@@ -2865,7 +3053,7 @@
     /* ====================================================================
        9. INITIALIZATION, ATALHOS & EVENT LISTENERS
        ==================================================================== */
-    document.addEventListener('DOMContentLoaded', async () => {
+    async function initApplication() {
       try {
         await initDB();
       } catch (err) {
@@ -2883,6 +3071,12 @@
       }
       renderApp();
       updateStatusBanners();
+
+      // Cancel Global Transfer Button
+      document.getElementById('btnCancelGlobalTransfer')?.addEventListener('click', () => {
+        cancelCurrentTransfer();
+        alert('Transferência cancelada.');
+      });
 
       // Panic Button (Parar Tudo)
       document.getElementById('btnStopAll').addEventListener('click', () => {
@@ -3349,15 +3543,33 @@
         }
       });
 
-      // Register Service Worker
+      // Register Service Worker & handle automatic updates
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js').then((reg) => {
           console.log('[Service Worker] Registrado com sucesso:', reg.scope);
+          reg.addEventListener('updatefound', () => {
+            const newWorker = reg.installing;
+            if (newWorker) {
+              newWorker.addEventListener('statechange', () => {
+                if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                  console.log('[Service Worker] Atualização detectada, recarregando...');
+                  window.location.reload();
+                }
+              });
+            }
+          });
         }).catch((err) => {
           console.warn('[Service Worker] Falha no registro:', err);
         });
       }
-    });
+    }
+
+    // Launch app reliably whether DOM is loading or already ready (PWA / Service Worker)
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initApplication);
+    } else {
+      initApplication();
+    }
 
     /* ====================================================================
        10. BATCH FOLDER & ZIP IMPORT ENGINE (Auto-create Plays & Audios)
@@ -3755,22 +3967,17 @@
       closeModal('modalImportFolder');
 
       if (replacedCount > 0 && addedCount === 0) {
-        alert(`🎉 Importação concluída com sucesso!\n${replacedCount} áudio(s) atualizados com os novos arquivos (sem duplicar).`);
+        alert(`🎉 Importação concluída com sucesso!\n${replacedCount} áudio(s) atualizados com os novos arquivos (sem duplicar).\n\n📱 Para tocar no celular:\n• Recomendado: Clique no botão "Gerar .ZIP" no topo e envie pelo WhatsApp para carregar em 3 segundos no celular!\n• Ou clique em "Enviar Rápido" para subir via nuvem.`);
       } else if (replacedCount > 0 && addedCount > 0) {
-        alert(`🎉 Importação concluída com sucesso!\n${replacedCount} áudio(s) substituídos (sem duplicar) e ${addedCount} novos áudios adicionados.`);
+        alert(`🎉 Importação concluída com sucesso!\n${replacedCount} áudio(s) substituídos (sem duplicar) e ${addedCount} novos áudios adicionados.\n\n📱 Para tocar no celular:\n• Recomendado: Clique no botão "Gerar .ZIP" no topo e envie pelo WhatsApp para carregar em 3 segundos no celular!\n• Ou clique em "Enviar Rápido" para subir via nuvem.`);
       } else if (isReplace) {
-        alert(`🎉 Repertório substituído com sucesso com ${totalFiles} áudio(s)!`);
+        alert(`🎉 Repertório substituído com sucesso com ${totalFiles} áudio(s)!\n\n📱 Para tocar no celular:\n• Recomendado: Clique no botão "Gerar .ZIP" no topo e envie pelo WhatsApp para carregar em 3 segundos no celular!\n• Ou clique em "Enviar Rápido" para subir via nuvem.`);
       } else {
-        alert(`🎉 Importação instantânea concluída!\n${detectedImportBatches.size} peça(s) e ${totalFiles} áudio(s) organizados no seu painel.`);
+        alert(`🎉 Importação instantânea concluída!\n${detectedImportBatches.size} peça(s) e ${totalFiles} áudio(s) organizados no seu painel.\n\n📱 Para tocar no celular:\n• Recomendado: Clique no botão "Gerar .ZIP" no topo e envie pelo WhatsApp para carregar em 3 segundos no celular!\n• Ou clique em "Enviar Rápido" para subir via nuvem.`);
       }
 
       detectedImportBatches = null;
       document.getElementById('importPreviewContainer').classList.add('hidden');
-
-      // Auto-start high-speed parallel upload in the background (4x faster)
-      if (state.firebaseStorage) {
-        uploadLocalAudiosToCloud(true);
-      }
     }
 
     // Helper: Escape HTML

@@ -3,7 +3,7 @@
    Offline-First Cache Strategy for PWA Execution & Soundboard
    ==================================================================== */
 
-const CACHE_NAME = 'ejc-sonoplastia-v2.5';
+const CACHE_NAME = 'ejc-sonoplastia-v2.6';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -18,11 +18,10 @@ const STATIC_ASSETS = [
   'https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js'
 ];
 
-// Install Event: Pre-cache core shell
+// Install Event: Pre-cache core shell & skip waiting immediately
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      // Use catch for individual assets so CDN transient issues don't fail entire install
       return Promise.allSettled(
         STATIC_ASSETS.map((url) =>
           cache.add(url).catch((err) => {
@@ -34,7 +33,7 @@ self.addEventListener('install', (event) => {
   );
 });
 
-// Activate Event: Clean up legacy caches
+// Activate Event: Clean up legacy caches & claim clients immediately
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -50,12 +49,28 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch Event: Cache-First with Network Fallback & Runtime Caching
+// Fetch Event
 self.addEventListener('fetch', (event) => {
   const request = event.request;
 
-  // Ignore non-GET or chrome-extension requests
+  // Ignore non-GET or browser extension requests
   if (request.method !== 'GET' || request.url.startsWith('chrome-extension://')) {
+    return;
+  }
+
+  // Handle HTML navigation: Network-First so users get updates instantly when online, with offline cache fallback
+  if (request.mode === 'navigate' || (request.method === 'GET' && request.headers.get('accept')?.includes('text/html'))) {
+    event.respondWith(
+      fetch(request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, responseClone));
+        }
+        return networkResponse;
+      }).catch(() => {
+        return caches.match('/index.html') || caches.match('/');
+      })
+    );
     return;
   }
 
@@ -78,7 +93,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Standard static asset handling: Stale-While-Revalidate
+  // Static assets: Stale-While-Revalidate
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       const fetchPromise = fetch(request)
@@ -91,13 +106,7 @@ self.addEventListener('fetch', (event) => {
           }
           return networkResponse;
         })
-        .catch(() => {
-          // If offline and request is HTML, fallback to cached index.html
-          if (request.headers.get('accept')?.includes('text/html')) {
-            return caches.match('/index.html') || caches.match('/');
-          }
-          return cachedResponse;
-        });
+        .catch(() => cachedResponse);
 
       return cachedResponse || fetchPromise;
     })
