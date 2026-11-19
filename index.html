@@ -175,10 +175,10 @@
             <span>+ Áudio</span>
           </button>
 
-          <!-- Import Folder Button -->
-          <button id="btnOpenImportFolderModal" title="Importar Pasta com Peças e Áudios Organizados" class="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600/30 to-teal-600/30 hover:from-emerald-600/50 hover:to-teal-600/50 text-emerald-300 hover:text-white px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold border border-emerald-500/40 transition-all shadow-sm active:scale-95">
-            <i data-lucide="folder-input" class="w-4 h-4 text-emerald-400"></i>
-            <span class="hidden md:inline">Importar Pasta</span>
+          <!-- Import Folder & ZIP Button -->
+          <button id="btnOpenImportFolderModal" title="Importar Pasta ou arquivo .ZIP com Peças e Áudios" class="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 sm:px-3 py-2 rounded-xl text-xs font-bold border border-emerald-400/40 transition-all shadow-md shadow-emerald-950/40 active:scale-95">
+            <i data-lucide="folder-input" class="w-4 h-4 text-amber-300"></i>
+            <span class="inline font-bold">Importar .ZIP</span>
           </button>
 
           <!-- Cloud Sync Modal Button -->
@@ -274,22 +274,26 @@
     </div>
 
     <!-- PC Pending Upload Banner -->
-    <div id="pcPendingUploadBanner" class="hidden mb-3 p-3.5 bg-indigo-950/60 border border-indigo-500/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-indigo-200">
+    <div id="pcPendingUploadBanner" class="hidden mb-3 p-3.5 bg-indigo-950/70 border border-indigo-500/50 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-indigo-200 shadow-xl">
       <div class="flex items-start sm:items-center gap-2.5">
-        <i data-lucide="upload-cloud" class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5 sm:mt-0"></i>
+        <div class="w-10 h-10 rounded-xl bg-amber-500/20 text-amber-400 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
+          <i data-lucide="archive" class="w-5 h-5"></i>
+        </div>
         <div>
-          <div><strong id="pcPendingUploadCount">0 áudios</strong> salvos neste computador ainda não foram enviados para o celular.</div>
-          <div class="text-[11px] text-indigo-300/80 mt-0.5">Dica: Se a internet estiver lenta, exporte o <b>.ZIP</b> e envie pelo WhatsApp para carregar no celular em 3 segundos!</div>
+          <div class="font-bold text-white text-sm"><strong id="pcPendingUploadCount">0 áudios</strong> salvos neste computador.</div>
+          <div class="text-[11px] text-indigo-200 mt-0.5 leading-relaxed">
+            Envie para o celular sem custo: clique no botão verde para <b>Gerar o .ZIP</b> e mande pelo WhatsApp. No celular, clique em <b>Importar .ZIP</b> para carregar tudo em 3 segundos offline!
+          </div>
         </div>
       </div>
       <div class="flex items-center gap-2 flex-shrink-0">
-        <button id="btnBannerUploadAllAudios" class="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md">
-          <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-300"></i>
-          <span>Enviar Rápido (4x)</span>
+        <button onclick="document.getElementById('btnExportFullZipPackage')?.click()" title="Exportar pacote .ZIP para mandar pelo WhatsApp" class="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-950/60 active:scale-95 transition-all">
+          <i data-lucide="archive" class="w-4 h-4 text-amber-300"></i>
+          <span>Gerar .ZIP (WhatsApp)</span>
         </button>
-        <button onclick="document.getElementById('btnExportFullZipPackage')?.click()" title="Exportar pacote .ZIP para mandar pelo WhatsApp" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-semibold text-xs border border-slate-700 flex items-center gap-1">
-          <i data-lucide="archive" class="w-3.5 h-3.5 text-amber-400"></i>
-          <span>Gerar .ZIP</span>
+        <button id="btnBannerUploadAllAudios" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl font-medium text-[11px] border border-slate-700 flex items-center gap-1 transition-all">
+          <i data-lucide="cloud-upload" class="w-3.5 h-3.5 text-blue-400"></i>
+          <span>Upload Nuvem</span>
         </button>
       </div>
     </div>
@@ -1696,11 +1700,13 @@
         }
 
         if (!srcUrl) {
-          alert(`O arquivo do áudio "${audioMeta.title}" ainda não foi baixado neste aparelho.\n\n` +
-                `Motivo: As peças sincronizaram pela nuvem, mas o arquivo MP3 físico ainda está apenas no computador de onde foi importado.\n\n` +
-                `Como resolver:\n` +
-                `1. No computador onde estão as músicas, abra o site, clique no ícone da Nuvem ☁️ e clique em "Enviar Áudios deste PC para o Celular", OU\n` +
-                `2. Neste celular, clique no botão verde "Importar Pasta" e selecione o arquivo .ZIP com os áudios para carregar diretamente.`);
+          const wantToPickZip = confirm(
+            `O áudio "${audioMeta.title}" ainda não está na memória deste aparelho.\n\n` +
+            `Deseja selecionar o arquivo .ZIP recebido pelo WhatsApp para carregar todas as músicas agora?`
+          );
+          if (wantToPickZip) {
+            document.getElementById('inputZipUpload')?.click();
+          }
           return;
         }
 
