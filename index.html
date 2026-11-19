@@ -239,27 +239,64 @@
       </button>
     </div>
 
-    <!-- PC Pending Upload Banner -->
-    <div id="pcPendingUploadBanner" class="hidden mb-3 p-3 bg-indigo-950/60 border border-indigo-500/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-indigo-200">
-      <div class="flex items-center gap-2">
-        <i data-lucide="upload-cloud" class="w-4 h-4 text-blue-400 flex-shrink-0"></i>
-        <span><strong id="pcPendingUploadCount">0 áudios</strong> salvos neste computador ainda não foram enviados para o celular.</span>
+    <!-- Global High-Speed Transfer Bar (Active during multi-file upload or download) -->
+    <div id="globalTransferBar" class="hidden mb-3 p-3.5 bg-slate-900/95 border border-blue-500/50 rounded-2xl shadow-2xl space-y-2 backdrop-blur-md">
+      <div class="flex items-center justify-between text-xs">
+        <div class="flex items-center gap-2 min-w-0">
+          <div class="w-2.5 h-2.5 rounded-full bg-blue-500 animate-ping flex-shrink-0"></div>
+          <span id="globalTransferTitle" class="font-bold text-white flex items-center gap-1.5 truncate">
+            <i data-lucide="zap" class="w-4 h-4 text-amber-400 flex-shrink-0"></i>
+            <span>Transferência Rápida em Andamento...</span>
+          </span>
+        </div>
+        <div class="flex items-center gap-2 sm:gap-3 font-mono text-[11px] text-slate-300 flex-shrink-0">
+          <span id="globalTransferSpeed" class="text-emerald-400 font-bold hidden sm:inline">0.0 MB/s</span>
+          <span id="globalTransferSize" class="text-slate-400">0 / 0 MB</span>
+          <span id="globalTransferPercent" class="font-bold text-white bg-blue-600 px-2 py-0.5 rounded-lg">0%</span>
+        </div>
       </div>
-      <button id="btnBannerUploadAllAudios" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1.5 flex-shrink-0 shadow-md">
-        <i data-lucide="cloud-upload" class="w-3.5 h-3.5"></i>
-        <span>Enviar Áudios para Nuvem Agora</span>
-      </button>
+      <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
+        <div id="globalTransferProgressBar" class="bg-gradient-to-r from-blue-500 via-indigo-500 to-emerald-400 h-full w-0 transition-all duration-150"></div>
+      </div>
+      <div class="flex items-center justify-between text-[11px] text-slate-400">
+        <span id="globalTransferItemName" class="truncate max-w-[65%] font-mono">Preparando...</span>
+        <span id="globalTransferRemaining" class="text-right font-mono truncate max-w-[35%]">Acelerado (4 conexões)</span>
+      </div>
+    </div>
+
+    <!-- PC Pending Upload Banner -->
+    <div id="pcPendingUploadBanner" class="hidden mb-3 p-3.5 bg-indigo-950/60 border border-indigo-500/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-indigo-200">
+      <div class="flex items-start sm:items-center gap-2.5">
+        <i data-lucide="upload-cloud" class="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5 sm:mt-0"></i>
+        <div>
+          <div><strong id="pcPendingUploadCount">0 áudios</strong> salvos neste computador ainda não foram enviados para o celular.</div>
+          <div class="text-[11px] text-indigo-300/80 mt-0.5">Dica: Se a internet estiver lenta, exporte o <b>.ZIP</b> e envie pelo WhatsApp para carregar no celular em 3 segundos!</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 flex-shrink-0">
+        <button id="btnBannerUploadAllAudios" class="px-3.5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 shadow-md">
+          <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-300"></i>
+          <span>Enviar Rápido (4x)</span>
+        </button>
+        <button onclick="document.getElementById('btnExportFullZipPackage')?.click()" title="Exportar pacote .ZIP para mandar pelo WhatsApp" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl font-semibold text-xs border border-slate-700 flex items-center gap-1">
+          <i data-lucide="archive" class="w-3.5 h-3.5 text-amber-400"></i>
+          <span>Gerar .ZIP</span>
+        </button>
+      </div>
     </div>
 
     <!-- Missing / Downloadable Audios Notification Banner -->
-    <div id="offlineDownloadAlertBanner" class="hidden mb-3 p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-emerald-200">
-      <div class="flex items-center gap-2">
-        <i data-lucide="download-cloud" class="w-4 h-4 text-emerald-400 flex-shrink-0"></i>
-        <span><strong id="offlineDownloadAlertCount">0 áudios</strong> disponíveis na nuvem para baixar neste aparelho.</span>
+    <div id="offlineDownloadAlertBanner" class="hidden mb-3 p-3.5 bg-emerald-950/60 border border-emerald-500/40 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-emerald-200">
+      <div class="flex items-center gap-2.5">
+        <i data-lucide="download-cloud" class="w-5 h-5 text-emerald-400 flex-shrink-0"></i>
+        <div>
+          <div><strong id="offlineDownloadAlertCount">0 áudios</strong> prontos na nuvem para tocar neste celular.</div>
+          <div class="text-[11px] text-emerald-300/80">Baixe para a memória interna e use 100% sem internet no retiro.</div>
+        </div>
       </div>
-      <button id="btnBannerDownloadAllAudios" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1.5 flex-shrink-0 shadow-md">
-        <i data-lucide="hard-drive-download" class="w-3.5 h-3.5"></i>
-        <span>Baixar para Usar 100% Offline</span>
+      <button id="btnBannerDownloadAllAudios" class="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl font-bold text-xs flex items-center gap-1.5 flex-shrink-0 shadow-md">
+        <i data-lucide="zap" class="w-3.5 h-3.5 text-amber-300"></i>
+        <span>Baixar Tudo Rápido (4x)</span>
       </button>
     </div>
 
@@ -2249,7 +2286,7 @@
                 renderApp();
                 updateStatusBanners();
 
-                // Pre-generate procedural preset sounds or background download cloud audios
+                // Pre-generate procedural preset sounds if missing
                 for (const audio of state.audios) {
                   if (audio.presetType && audio.blobKey) {
                     const existing = await getAudioBlob(audio.blobKey);
@@ -2257,23 +2294,10 @@
                       const blob = await generateSoundEffectBlob(audio.presetType);
                       await saveAudioBlob(audio.blobKey, blob);
                     }
-                  } else if (audio.sourceUrl && audio.blobKey) {
-                    const existing = await getAudioBlob(audio.blobKey);
-                    if (!existing) {
-                      // Attempt background fetch and cache in IndexedDB for 100% offline usage!
-                      fetch(audio.sourceUrl)
-                        .then(r => r.ok ? r.blob() : null)
-                        .then(async (b) => {
-                          if (b) {
-                            await saveAudioBlob(audio.blobKey, b);
-                            renderApp();
-                            updateStatusBanners();
-                          }
-                        })
-                        .catch(() => {});
-                    }
                   }
                 }
+                // High-speed parallel background download for mobile
+                queueBackgroundAudioDownloads();
               }
             } else {
               // First time: upload local plays and audios to cloud!
@@ -2369,10 +2393,53 @@
       });
     });
 
-    // Upload local audio files to Firebase Storage
-    async function uploadLocalAudiosToCloud() {
+    // Update global floating transfer bar for high-speed uploads/downloads
+    function setTransferBar(visible, data = {}) {
+      const bar = document.getElementById('globalTransferBar');
+      if (!bar) return;
+      if (!visible) {
+        bar.classList.add('hidden');
+        return;
+      }
+      bar.classList.remove('hidden');
+      if (data.title) document.getElementById('globalTransferTitle').innerHTML = data.title;
+      if (data.speed) document.getElementById('globalTransferSpeed').textContent = data.speed;
+      if (data.size) document.getElementById('globalTransferSize').textContent = data.size;
+      if (data.percent) document.getElementById('globalTransferPercent').textContent = data.percent;
+      if (data.width) document.getElementById('globalTransferProgressBar').style.width = data.width;
+      if (data.itemName) document.getElementById('globalTransferItemName').textContent = data.itemName;
+      if (data.remaining) document.getElementById('globalTransferRemaining').textContent = data.remaining;
+      if (window.lucide) lucide.createIcons();
+    }
+
+    // High-speed parallel task pool (concurrency limit)
+    async function runConcurrentPool(items, limit, taskFn) {
+      if (!items || items.length === 0) return [];
+      const results = new Array(items.length);
+      let nextIndex = 0;
+      const workerCount = Math.min(limit, items.length);
+
+      const workers = Array.from({ length: workerCount }, async () => {
+        while (nextIndex < items.length) {
+          const idx = nextIndex++;
+          try {
+            results[idx] = await taskFn(items[idx], idx);
+          } catch (err) {
+            results[idx] = { error: err };
+          }
+        }
+      });
+
+      await Promise.all(workers);
+      return results;
+    }
+
+    // Upload local audio files to Firebase Storage in High-Speed Parallel Mode (4x faster)
+    async function uploadLocalAudiosToCloud(isSilentAutoMode = false) {
       if (!state.firebaseStorage) {
-        alert('Firebase Storage não está ativo ou conectado.\n\nVerifique se o Storage está habilitado no Console do Firebase (Criação > Storage).');
+        if (!isSilentAutoMode) {
+          alert('Firebase Storage não está ativo ou conectado.\n\nVerifique se o Storage está habilitado no Console do Firebase (Criação > Storage).');
+        }
         return;
       }
 
@@ -2382,75 +2449,123 @@
         if (audio.blobKey) {
           const blob = await getAudioBlob(audio.blobKey);
           if (blob && (!audio.sourceUrl || !audio.sourceUrl.includes('firebasestorage'))) {
-            audiosToUpload.push({ audio, blob });
+            audiosToUpload.push({ audio, blob, size: blob.size || 0 });
           }
         }
       }
 
       if (audiosToUpload.length === 0) {
-        alert('Todos os áudios locais deste aparelho já estão sincronizados no Firebase Storage!');
+        if (!isSilentAutoMode) {
+          alert('Todos os áudios locais deste aparelho já estão sincronizados no Firebase Storage!');
+        }
         return;
       }
 
-      const proceed = confirm(`Deseja enviar ${audiosToUpload.length} áudio(s) para o Firebase Storage?\n\nIsso permitirá que qualquer celular ou computador toque as músicas e as salve para usar 100% offline.`);
-      if (!proceed) return;
-
-      const progressContainer = document.getElementById('cloudAudioUploadProgress');
-      const progressBar = document.getElementById('cloudAudioUploadBar');
-      const progressPercent = document.getElementById('cloudAudioUploadPercent');
-      const progressStatus = document.getElementById('cloudAudioUploadStatus');
-      const btn = document.getElementById('btnUploadLocalAudiosToCloud');
-
-      if (progressContainer) progressContainer.classList.remove('hidden');
-      if (btn) {
-        btn.disabled = true;
-        btn.classList.add('opacity-50');
+      if (!isSilentAutoMode) {
+        const proceed = confirm(`Deseja enviar ${audiosToUpload.length} áudio(s) para o Firebase Storage com velocidade acelerada (4 conexões simultâneas)?\n\nIsso permitirá que qualquer celular ou notebook toque as músicas e as salve para usar 100% offline.`);
+        if (!proceed) return;
       }
+
+      const totalBytes = audiosToUpload.reduce((sum, item) => sum + item.size, 0);
+      const totalMB = (totalBytes / (1024 * 1024)).toFixed(1);
+      const bytesMap = new Map();
+      const startTime = Date.now();
+
+      function updateTransferProgress(currentTitle = '') {
+        let transferred = 0;
+        for (const b of bytesMap.values()) transferred += b;
+        const elapsedSec = (Date.now() - startTime) / 1000;
+        const speed = elapsedSec > 0.5 ? ((transferred / (1024 * 1024)) / elapsedSec).toFixed(1) : '0.0';
+        const percent = totalBytes > 0 ? Math.min(99, Math.round((transferred / totalBytes) * 100)) : 0;
+        const transferredMB = (transferred / (1024 * 1024)).toFixed(1);
+
+        setTransferBar(true, {
+          title: '<i data-lucide="zap" class="w-4 h-4 text-amber-400"></i><span>Enviando Áudios para o Celular (Upload Acelerado 4x)</span>',
+          speed: `${speed} MB/s`,
+          size: `${transferredMB} / ${totalMB} MB`,
+          percent: `${percent}%`,
+          width: `${percent}%`,
+          itemName: currentTitle ? `Faixa: ${currentTitle}` : 'Enviando arquivos em paralelo...',
+          remaining: `${audiosToUpload.length} músicas (4 simultâneas)`
+        });
+
+        const modalContainer = document.getElementById('cloudAudioUploadProgress');
+        const modalBar = document.getElementById('cloudAudioUploadBar');
+        const modalPercent = document.getElementById('cloudAudioUploadPercent');
+        const modalStatus = document.getElementById('cloudAudioUploadStatus');
+        if (modalContainer) modalContainer.classList.remove('hidden');
+        if (modalBar) modalBar.style.width = `${percent}%`;
+        if (modalPercent) modalPercent.textContent = `${percent}%`;
+        if (modalStatus) modalStatus.textContent = `Enviando (${transferredMB}/${totalMB} MB - ${speed} MB/s)`;
+      }
+
+      const btn = document.getElementById('btnUploadLocalAudiosToCloud');
+      const bannerBtn = document.getElementById('btnBannerUploadAllAudios');
+      if (btn) { btn.disabled = true; btn.classList.add('opacity-50'); }
+      if (bannerBtn) { bannerBtn.disabled = true; bannerBtn.classList.add('opacity-50'); }
+
+      updateTransferProgress('Iniciando 4 conexões simultâneas...');
 
       let uploaded = 0;
       let errors = 0;
 
-      for (let i = 0; i < audiosToUpload.length; i++) {
-        const { audio, blob } = audiosToUpload[i];
-        const percent = Math.round(((i + 1) / audiosToUpload.length) * 100);
-        if (progressStatus) progressStatus.textContent = `Enviando (${i + 1}/${audiosToUpload.length}): ${audio.title}...`;
-        if (progressBar) progressBar.style.width = `${percent}%`;
-        if (progressPercent) progressPercent.textContent = `${percent}%`;
+      // 4 concurrent parallel uploads
+      await runConcurrentPool(audiosToUpload, 4, async ({ audio, blob }) => {
+        const safeId = audio.id.replace(/[^a-zA-Z0-9_-]/g, '_');
+        const ext = (blob.type && blob.type.includes('wav')) ? 'wav' : 'mp3';
+        const storageRef = state.firebaseStorage.ref(`audios/${safeId}.${ext}`);
+        const uploadTask = storageRef.put(blob, { contentType: blob.type || 'audio/mpeg' });
 
-        try {
-          const safeId = audio.id.replace(/[^a-zA-Z0-9_-]/g, '_');
-          const ext = (blob.type && blob.type.includes('wav')) ? 'wav' : 'mp3';
-          const storageRef = state.firebaseStorage.ref(`audios/${safeId}.${ext}`);
-          await storageRef.put(blob, { contentType: blob.type || 'audio/mpeg' });
-          const downloadUrl = await storageRef.getDownloadURL();
-          audio.sourceUrl = downloadUrl;
-          uploaded++;
-        } catch (err) {
-          console.error(`Erro ao subir áudio ${audio.title}:`, err);
-          errors++;
-        }
-      }
+        await new Promise((resolve) => {
+          uploadTask.on(
+            'state_changed',
+            (snap) => {
+              bytesMap.set(audio.id, snap.bytesTransferred);
+              updateTransferProgress(audio.title);
+            },
+            (err) => {
+              console.error(`Erro ao subir áudio ${audio.title}:`, err);
+              errors++;
+              resolve();
+            },
+            async () => {
+              try {
+                bytesMap.set(audio.id, blob.size || (1024 * 1024));
+                const downloadUrl = await uploadTask.snapshot.ref.getDownloadURL();
+                audio.sourceUrl = downloadUrl;
+                uploaded++;
+              } catch (e) {
+                console.error('getDownloadURL err:', e);
+                errors++;
+              }
+              updateTransferProgress(audio.title);
+              resolve();
+            }
+          );
+        });
+      });
 
       await persistMetadata();
       await syncToFirebase();
 
-      if (progressContainer) progressContainer.classList.add('hidden');
-      if (btn) {
-        btn.disabled = false;
-        btn.classList.remove('opacity-50');
-      }
+      setTransferBar(false);
+      document.getElementById('cloudAudioUploadProgress')?.classList.add('hidden');
+      if (btn) { btn.disabled = false; btn.classList.remove('opacity-50'); }
+      if (bannerBtn) { bannerBtn.disabled = false; bannerBtn.classList.remove('opacity-50'); }
 
       renderApp();
       updateStatusBanners();
 
-      if (errors > 0) {
-        alert(`Upload concluído com avisos:\n${uploaded} áudio(s) enviados com sucesso para a nuvem.\n${errors} falharam.\n\nSe todos falharam, certifique-se de que o Firebase Storage está ativado no Console do Firebase e com as Regras em Modo de Teste (allow read, write: if true;).`);
-      } else {
-        alert(`🎉 Sucesso total!\n${uploaded} áudio(s) foram enviados para o Firebase Storage.\n\nAgora abra o site no seu celular: os áudios já estarão disponíveis para tocar e baixar offline!`);
+      if (!isSilentAutoMode) {
+        if (errors > 0) {
+          alert(`Upload finalizado:\n${uploaded} áudio(s) enviados com sucesso.\n${errors} falharam.`);
+        } else {
+          alert(`⚡ Concluído em alta velocidade!\nTodos os ${uploaded} áudio(s) foram enviados para o Firebase Storage.\n\nAgora abra no celular: tudo já estará pronto para tocar e baixar offline.`);
+        }
       }
     }
 
-    // Download all cloud audios to IndexedDB for 100% offline usage on phone
+    // Download all cloud audios to IndexedDB for 100% offline usage on phone (4x faster)
     async function downloadAllAudiosToDevice() {
       const audiosToDownload = [];
       for (const a of state.audios) {
@@ -2465,29 +2580,49 @@
         return;
       }
 
-      const progressContainer = document.getElementById('cloudAudioDownloadProgress');
-      const progressBar = document.getElementById('cloudAudioDownloadBar');
-      const progressPercent = document.getElementById('cloudAudioDownloadPercent');
-      const progressStatus = document.getElementById('cloudAudioDownloadStatus');
       const btn = document.getElementById('btnDownloadAllAudiosToDevice');
-
-      if (progressContainer) progressContainer.classList.remove('hidden');
-      if (btn) {
-        btn.disabled = true;
-        btn.classList.add('opacity-50');
-      }
+      const bannerBtn = document.getElementById('btnBannerDownloadAllAudios');
+      if (btn) { btn.disabled = true; btn.classList.add('opacity-50'); }
+      if (bannerBtn) { bannerBtn.disabled = true; bannerBtn.classList.add('opacity-50'); }
 
       let downloaded = 0;
       let failed = 0;
+      let downloadedBytes = 0;
+      const totalCount = audiosToDownload.length;
+      const startTime = Date.now();
 
-      for (let i = 0; i < audiosToDownload.length; i++) {
-        const audio = audiosToDownload[i];
-        const percent = Math.round(((i + 1) / audiosToDownload.length) * 100);
-        if (progressStatus) progressStatus.textContent = `Baixando (${i + 1}/${audiosToDownload.length}): ${audio.title}...`;
-        if (progressBar) progressBar.style.width = `${percent}%`;
-        if (progressPercent) progressPercent.textContent = `${percent}%`;
+      function updateDownloadProgress(currentTitle = '') {
+        const elapsedSec = (Date.now() - startTime) / 1000;
+        const speed = elapsedSec > 0.5 ? ((downloadedBytes / (1024 * 1024)) / elapsedSec).toFixed(1) : '0.0';
+        const percent = Math.round((downloaded / totalCount) * 100);
+        const downloadedMB = (downloadedBytes / (1024 * 1024)).toFixed(1);
 
+        setTransferBar(true, {
+          title: '<i data-lucide="zap" class="w-4 h-4 text-amber-400"></i><span>Baixando Músicas para o Celular (Acelerado 4x)</span>',
+          speed: `${speed} MB/s`,
+          size: `${downloadedMB} MB (${downloaded}/${totalCount})`,
+          percent: `${percent}%`,
+          width: `${percent}%`,
+          itemName: currentTitle ? `Baixando: ${currentTitle}` : 'Baixando em paralelo...',
+          remaining: '4 downloads simultâneos'
+        });
+
+        const modalContainer = document.getElementById('cloudAudioDownloadProgress');
+        const modalBar = document.getElementById('cloudAudioDownloadBar');
+        const modalPercent = document.getElementById('cloudAudioDownloadPercent');
+        const modalStatus = document.getElementById('cloudAudioDownloadStatus');
+        if (modalContainer) modalContainer.classList.remove('hidden');
+        if (modalBar) modalBar.style.width = `${percent}%`;
+        if (modalPercent) modalPercent.textContent = `${percent}%`;
+        if (modalStatus) modalStatus.textContent = `Baixando ${downloaded}/${totalCount} (${downloadedMB} MB - ${speed} MB/s)`;
+      }
+
+      updateDownloadProgress('Iniciando 4 downloads simultâneos...');
+
+      // 4 concurrent parallel downloads
+      await runConcurrentPool(audiosToDownload, 4, async (audio) => {
         try {
+          updateDownloadProgress(audio.title);
           const resp = await fetch(audio.sourceUrl);
           if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
           const blob = await resp.blob();
@@ -2495,28 +2630,61 @@
           audio.blobKey = key;
           await saveAudioBlob(key, blob);
           downloaded++;
+          downloadedBytes += (blob.size || 0);
+          updateDownloadProgress(audio.title);
         } catch (err) {
           console.warn(`Falha ao baixar áudio ${audio.title}:`, err);
           failed++;
         }
-      }
+      });
 
       await persistMetadata();
       await refreshCachedBlobKeys();
 
-      if (progressContainer) progressContainer.classList.add('hidden');
-      if (btn) {
-        btn.disabled = false;
-        btn.classList.remove('opacity-50');
-      }
+      setTransferBar(false);
+      document.getElementById('cloudAudioDownloadProgress')?.classList.add('hidden');
+      if (btn) { btn.disabled = false; btn.classList.remove('opacity-50'); }
+      if (bannerBtn) { bannerBtn.disabled = false; bannerBtn.classList.remove('opacity-50'); }
 
       renderApp();
       updateStatusBanners();
 
       if (failed > 0) {
-        alert(`Download finalizado:\n${downloaded} áudio(s) salvos na memória do aparelho.\n${failed} falharam ao baixar.`);
+        alert(`Download finalizado:\n${downloaded} áudio(s) salvos na memória do celular.\n${failed} falharam ao baixar.`);
       } else {
-        alert(`🎉 Excelente!\nTodos os ${downloaded} áudio(s) foram baixados para a memória interna deste aparelho.\n\nVocê já pode usar a sonoplastia no retiro 100% sem internet!`);
+        alert(`🎉 Excelente!\nTodos os ${downloaded} áudio(s) foram baixados para a memória interna do seu celular.\n\nAgora você pode desligar o Wi-Fi e dados móveis: tudo tocará 100% offline no retiro!`);
+      }
+    }
+
+    // Silent background downloader queue for mobile
+    let isBackgroundDownloading = false;
+    async function queueBackgroundAudioDownloads() {
+      if (isBackgroundDownloading) return;
+      const missing = [];
+      for (const a of state.audios) {
+        if (a.sourceUrl && a.blobKey && (!state.cachedBlobKeys || !state.cachedBlobKeys.has(a.blobKey))) {
+          missing.push(a);
+        }
+      }
+      if (missing.length === 0) return;
+      isBackgroundDownloading = true;
+
+      try {
+        await runConcurrentPool(missing, 3, async (audio) => {
+          try {
+            const resp = await fetch(audio.sourceUrl);
+            if (resp.ok) {
+              const b = await resp.blob();
+              await saveAudioBlob(audio.blobKey, b);
+              renderApp();
+              updateStatusBanners();
+            }
+          } catch (e) {
+            console.warn('Background download error:', audio.title, e);
+          }
+        });
+      } finally {
+        isBackgroundDownloading = false;
       }
     }
 
@@ -3351,20 +3519,6 @@
 
           const existingCount = state.audios.filter(a => a.playId === play.id).length;
 
-          let sourceUrl = null;
-          if (state.firebaseStorage) {
-            try {
-              progressStatus.textContent = `Enviando para a nuvem: ${item.title}... (${processed}/${totalFiles})`;
-              const safeId = audioId.replace(/[^a-zA-Z0-9_-]/g, '_');
-              const ext = (item.blob.type && item.blob.type.includes('wav')) ? 'wav' : 'mp3';
-              const storageRef = state.firebaseStorage.ref(`audios/${safeId}.${ext}`);
-              await storageRef.put(item.blob, { contentType: item.blob.type || 'audio/mpeg' });
-              sourceUrl = await storageRef.getDownloadURL();
-            } catch (storageErr) {
-              console.warn('Storage upload during import:', storageErr);
-            }
-          }
-
           state.audios.push({
             id: audioId,
             playId: play.id,
@@ -3373,7 +3527,7 @@
             category: item.category,
             isLoop: false,
             blobKey: audioId,
-            sourceUrl: sourceUrl,
+            sourceUrl: null,
             duration: duration,
             volume: 1.0,
             order: existingCount + 1
@@ -3391,9 +3545,14 @@
       progressContainer.classList.add('hidden');
       closeModal('modalImportFolder');
 
-      alert(`🎉 Importação concluída com sucesso!\n${detectedImportBatches.size} peça(s) e ${totalFiles} áudio(s) organizados no seu painel.`);
+      alert(`🎉 Importação instantânea concluída!\n${detectedImportBatches.size} peça(s) e ${totalFiles} áudio(s) organizados no seu painel.`);
       detectedImportBatches = null;
       document.getElementById('importPreviewContainer').classList.add('hidden');
+
+      // Auto-start high-speed parallel upload in the background (4x faster)
+      if (state.firebaseStorage) {
+        uploadLocalAudiosToCloud(true);
+      }
     }
 
     // Helper: Escape HTML
